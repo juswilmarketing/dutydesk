@@ -1,0 +1,558 @@
+[
+  {
+    "productFamily": "Footwear",
+    "industry": "footwear",
+    "typicalChapters": ["64"],
+    "requiredAttributes": [
+      {
+        "key": "upper_material",
+        "label": "Upper Material",
+        "prompt": "What is the upper material?",
+        "synonyms": ["upper", "vamp", "leather upper"],
+        "options": ["Leather", "Textile", "Rubber/Plastics", "Other"],
+        "inferencePatterns": ["\\bleather\\b", "\\btextile\\b", "\\bcanvas\\b", "\\bmesh\\b", "\\bsuede\\b"],
+        "confidenceThreshold": 0.75
+      },
+      {
+        "key": "outer_sole",
+        "label": "Outer Sole Material",
+        "prompt": "What is the outer sole made of?",
+        "synonyms": ["sole", "outsole"],
+        "options": ["Rubber", "Plastics", "Leather", "Other"],
+        "inferencePatterns": ["\\brubber sole\\b", "\\bplastic sole\\b", "\\bleather sole\\b"],
+        "confidenceThreshold": 0.75
+      },
+      {
+        "key": "sports_footwear",
+        "label": "Sports Footwear",
+        "prompt": "Is this sports / athletic footwear?",
+        "options": ["Yes", "No"],
+        "inferencePatterns": ["\\brunning\\b", "\\bathletic\\b", "\\bsport\\b", "\\btrainer\\b", "\\bsneaker\\b"],
+        "confidenceThreshold": 0.8
+      },
+      {
+        "key": "protective_footwear",
+        "label": "Protective Footwear",
+        "prompt": "Is this protective / safety footwear?",
+        "options": ["Yes", "No"],
+        "inferencePatterns": ["\\bsafety\\b", "\\bsteel toe\\b", "\\bprotective\\b", "\\bwork boot\\b"],
+        "confidenceThreshold": 0.8
+      },
+      {
+        "key": "waterproof",
+        "label": "Waterproof",
+        "prompt": "Is the footwear waterproof?",
+        "options": ["Yes", "No", "Unknown"],
+        "inferencePatterns": ["\\bwaterproof\\b", "\\bwater.?resistant\\b", "\\bgore.?tex\\b"],
+        "confidenceThreshold": 0.8
+      },
+      {
+        "key": "gender",
+        "label": "Gender",
+        "prompt": "What is the intended gender?",
+        "options": ["Men", "Women", "Unisex", "Unknown"],
+        "inferencePatterns": ["\\bmen'?s\\b", "\\bwomen'?s\\b", "\\bladies\\b", "\\bgents\\b", "\\bunisex\\b"],
+        "confidenceThreshold": 0.75
+      },
+      {
+        "key": "age_group",
+        "label": "Age Group",
+        "prompt": "What is the age group?",
+        "options": ["Adult", "Child", "Infant", "Unknown"],
+        "inferencePatterns": ["\\bchild\\b", "\\bkids?\\b", "\\binfant\\b", "\\bbaby\\b", "\\badult\\b"],
+        "confidenceThreshold": 0.75
+      }
+    ],
+    "optionalAttributes": [
+      {
+        "key": "brand",
+        "label": "Brand",
+        "prompt": "What is the brand?",
+        "synonyms": ["make", "label"]
+      },
+      {
+        "key": "model",
+        "label": "Model",
+        "prompt": "What is the model?"
+      },
+      {
+        "key": "fashion_work",
+        "label": "Fashion/Work",
+        "prompt": "Is this fashion or work footwear?",
+        "options": ["Fashion", "Work", "Both", "Unknown"]
+      }
+    ],
+    "questionOrder": [
+      "upper_material",
+      "outer_sole",
+      "sports_footwear",
+      "protective_footwear",
+      "waterproof",
+      "gender",
+      "age_group",
+      "brand",
+      "model",
+      "fashion_work"
+    ],
+    "validationRules": [
+      {
+        "attributeKey": "upper_material",
+        "rule": "required",
+        "message": "Upper material is required for footwear classification"
+      }
+    ]
+  },
+  {
+    "productFamily": "Electrical Equipment",
+    "industry": "electrical",
+    "typicalChapters": ["85"],
+    "requiredAttributes": [
+      {
+        "key": "function",
+        "label": "Function",
+        "prompt": "What is the primary function of this equipment?",
+        "synonyms": ["purpose", "use"],
+        "inferencePatterns": ["\\bpower supply\\b", "\\btransformer\\b", "\\binverter\\b", "\\bmotor\\b", "\\bswitch\\b"],
+        "confidenceThreshold": 0.7
+      },
+      {
+        "key": "voltage",
+        "label": "Voltage",
+        "prompt": "What is the input voltage?",
+        "synonyms": ["input voltage", "V"],
+        "inferencePatterns": ["\\b(\\d{2,4})\\s*v(?:olts?)?\\b", "\\b(\\d{2,4})\\s*vac\\b"],
+        "confidenceThreshold": 0.8
+      },
+      {
+        "key": "wattage",
+        "label": "Wattage",
+        "prompt": "What is the wattage / power rating?",
+        "synonyms": ["power", "watts", "W"],
+        "inferencePatterns": ["\\b(\\d+(?:\\.\\d+)?)\\s*w(?:atts?)?\\b", "\\b(\\d+(?:\\.\\d+)?)\\s*kw\\b"],
+        "confidenceThreshold": 0.8
+      },
+      {
+        "key": "phase",
+        "label": "Phase",
+        "prompt": "Is this single-phase or three-phase?",
+        "options": ["Single-phase", "Three-phase", "Unknown"],
+        "inferencePatterns": ["\\bsingle.?phase\\b", "\\b3.?phase\\b", "\\bthree.?phase\\b"],
+        "confidenceThreshold": 0.8
+      },
+      {
+        "key": "ac_dc",
+        "label": "AC/DC",
+        "prompt": "Is this AC or DC?",
+        "options": ["AC", "DC", "Both", "Unknown"],
+        "inferencePatterns": ["\\bac\\b", "\\bdc\\b", "\\bvac\\b", "\\bvdc\\b"],
+        "confidenceThreshold": 0.75
+      },
+      {
+        "key": "input",
+        "label": "Input",
+        "prompt": "What is the input specification?",
+        "inferencePatterns": ["\\binput[:\\s]+([^,;]+)", "\\bin[:\\s]+(\\d+\\s*v)"],
+        "confidenceThreshold": 0.7
+      },
+      {
+        "key": "output",
+        "label": "Output",
+        "prompt": "What is the output specification?",
+        "inferencePatterns": ["\\boutput[:\\s]+([^,;]+)", "\\bout[:\\s]+(\\d+\\s*v)"],
+        "confidenceThreshold": 0.7
+      }
+    ],
+    "optionalAttributes": [
+      { "key": "brand", "label": "Brand", "prompt": "What is the brand?" },
+      { "key": "model", "label": "Model", "prompt": "What is the model?" },
+      { "key": "part_number", "label": "Part Number", "prompt": "What is the part number?" }
+    ],
+    "questionOrder": ["function", "voltage", "wattage", "phase", "ac_dc", "input", "output", "brand", "model", "part_number"],
+    "validationRules": []
+  },
+  {
+    "productFamily": "Food",
+    "industry": "food",
+    "typicalChapters": ["02", "03", "04", "07", "08", "09", "16", "17", "18", "19", "20", "21"],
+    "requiredAttributes": [
+      {
+        "key": "fresh",
+        "label": "Fresh",
+        "prompt": "Is this fresh product?",
+        "options": ["Yes", "No", "Unknown"],
+        "inferencePatterns": ["\\bfresh\\b"],
+        "confidenceThreshold": 0.8
+      },
+      {
+        "key": "frozen",
+        "label": "Frozen",
+        "prompt": "Is this frozen?",
+        "options": ["Yes", "No", "Unknown"],
+        "inferencePatterns": ["\\bfrozen\\b", "\\biqf\\b"],
+        "confidenceThreshold": 0.85
+      },
+      {
+        "key": "prepared",
+        "label": "Prepared",
+        "prompt": "Is this prepared / ready-to-eat?",
+        "options": ["Yes", "No", "Unknown"],
+        "inferencePatterns": ["\\bprepared\\b", "\\bcooked\\b", "\\bready.?to.?eat\\b"],
+        "confidenceThreshold": 0.75
+      },
+      {
+        "key": "preserved",
+        "label": "Preserved",
+        "prompt": "Is this preserved / canned / pickled?",
+        "options": ["Yes", "No", "Unknown"],
+        "inferencePatterns": ["\\bcanned\\b", "\\bpreserved\\b", "\\bpickled\\b", "\\bin brine\\b"],
+        "confidenceThreshold": 0.8
+      },
+      {
+        "key": "ingredients",
+        "label": "Ingredients",
+        "prompt": "What are the main ingredients?",
+        "confidenceThreshold": 0.6
+      },
+      {
+        "key": "packaging",
+        "label": "Packaging",
+        "prompt": "What is the packaging type?",
+        "options": ["Bulk", "Retail pack", "Can", "Bottle", "Bag", "Other"],
+        "inferencePatterns": ["\\bcanned\\b", "\\bbottle\\b", "\\bbulk\\b", "\\bpouch\\b"],
+        "confidenceThreshold": 0.7
+      },
+      {
+        "key": "net_weight",
+        "label": "Net Weight",
+        "prompt": "What is the net weight?",
+        "inferencePatterns": ["\\b(\\d+(?:\\.\\d+)?)\\s*(kg|g|lb|oz)\\b"],
+        "confidenceThreshold": 0.85
+      }
+    ],
+    "optionalAttributes": [
+      { "key": "organic", "label": "Organic", "prompt": "Is this organic?", "options": ["Yes", "No", "Unknown"] },
+      { "key": "brand", "label": "Brand", "prompt": "What is the brand?" },
+      { "key": "country_of_origin", "label": "Country of Origin", "prompt": "What is the country of origin?" }
+    ],
+    "questionOrder": ["fresh", "frozen", "prepared", "preserved", "ingredients", "packaging", "net_weight", "organic", "brand", "country_of_origin"],
+    "validationRules": []
+  },
+  {
+    "productFamily": "Chemical",
+    "industry": "chemical",
+    "typicalChapters": ["28", "29", "30", "32", "33", "34", "38"],
+    "requiredAttributes": [
+      {
+        "key": "chemical_composition",
+        "label": "Chemical Composition",
+        "prompt": "What is the chemical composition / substance name?",
+        "confidenceThreshold": 0.7
+      },
+      {
+        "key": "concentration",
+        "label": "Concentration",
+        "prompt": "What is the concentration?",
+        "inferencePatterns": ["\\b(\\d+(?:\\.\\d+)?)\\s*%\\b"],
+        "confidenceThreshold": 0.8
+      },
+      {
+        "key": "physical_state",
+        "label": "Physical State",
+        "prompt": "What is the physical state?",
+        "options": ["Solid", "Liquid", "Gas", "Powder", "Paste", "Unknown"],
+        "inferencePatterns": ["\\bliquid\\b", "\\bsolid\\b", "\\bpowder\\b", "\\bgas\\b", "\\bpaste\\b"],
+        "confidenceThreshold": 0.75
+      },
+      {
+        "key": "hazardous",
+        "label": "Hazardous",
+        "prompt": "Is this hazardous?",
+        "options": ["Yes", "No", "Unknown"],
+        "inferencePatterns": ["\\bhazardous\\b", "\\bdangerous goods\\b", "\\bflammable\\b", "\\bcorrosive\\b"],
+        "confidenceThreshold": 0.8
+      },
+      {
+        "key": "industrial_use",
+        "label": "Industrial Use",
+        "prompt": "Is this for industrial use?",
+        "options": ["Yes", "No", "Unknown"],
+        "inferencePatterns": ["\\bindustrial\\b", "\\blaboratory\\b", "\\breagent\\b"],
+        "confidenceThreshold": 0.7
+      }
+    ],
+    "optionalAttributes": [
+      { "key": "cas_number", "label": "CAS Number", "prompt": "What is the CAS number?", "inferencePatterns": ["\\bcas[:\\s#]*([0-9-]+)\\b"] },
+      { "key": "un_number", "label": "UN Number", "prompt": "What is the UN number?", "inferencePatterns": ["\\bun[:\\s#]*([0-9]{4})\\b"] }
+    ],
+    "questionOrder": ["chemical_composition", "concentration", "physical_state", "hazardous", "industrial_use", "cas_number", "un_number"],
+    "validationRules": []
+  },
+  {
+    "productFamily": "Textiles",
+    "industry": "textile",
+    "typicalChapters": ["50", "51", "52", "53", "54", "55", "56", "57", "58", "59", "60", "61", "62", "63"],
+    "requiredAttributes": [
+      {
+        "key": "fibre_composition",
+        "label": "Fibre Composition",
+        "prompt": "What is the fibre composition?",
+        "synonyms": ["fiber", "composition", "cotton", "polyester"],
+        "inferencePatterns": ["\\bcotton\\b", "\\bpolyester\\b", "\\bwool\\b", "\\bnylon\\b", "\\b(\\d+)%\\s*\\w+"],
+        "confidenceThreshold": 0.75
+      },
+      {
+        "key": "knitted_woven",
+        "label": "Knitted/Woven",
+        "prompt": "Is this knitted or woven?",
+        "options": ["Knitted", "Woven", "Nonwoven", "Unknown"],
+        "inferencePatterns": ["\\bknitted\\b", "\\bwoven\\b", "\\bnon.?woven\\b"],
+        "confidenceThreshold": 0.8
+      },
+      {
+        "key": "garment_type",
+        "label": "Garment Type",
+        "prompt": "What type of garment / textile article is this?",
+        "inferencePatterns": ["\\bt-?shirt\\b", "\\btrouser\\b", "\\bdress\\b", "\\bjacket\\b", "\\bfabric\\b"],
+        "confidenceThreshold": 0.7
+      },
+      {
+        "key": "gender",
+        "label": "Gender",
+        "prompt": "What is the intended gender?",
+        "options": ["Men", "Women", "Unisex", "Unknown"],
+        "confidenceThreshold": 0.75
+      },
+      {
+        "key": "age_group",
+        "label": "Age Group",
+        "prompt": "What is the age group?",
+        "options": ["Adult", "Child", "Infant", "Unknown"],
+        "confidenceThreshold": 0.75
+      }
+    ],
+    "optionalAttributes": [
+      { "key": "brand", "label": "Brand", "prompt": "What is the brand?" },
+      { "key": "style", "label": "Style", "prompt": "What is the style?" }
+    ],
+    "questionOrder": ["fibre_composition", "knitted_woven", "garment_type", "gender", "age_group", "brand", "style"],
+    "validationRules": []
+  },
+  {
+    "productFamily": "Furniture",
+    "industry": "furniture",
+    "typicalChapters": ["94"],
+    "requiredAttributes": [
+      {
+        "key": "material",
+        "label": "Material",
+        "prompt": "What is the primary material?",
+        "options": ["Wood", "Metal", "Plastic", "Glass", "Rattan", "Other"],
+        "inferencePatterns": ["\\bwood\\b", "\\bmetal\\b", "\\bsteel\\b", "\\bplastic\\b", "\\bglass\\b"],
+        "confidenceThreshold": 0.75
+      },
+      {
+        "key": "indoor_outdoor",
+        "label": "Indoor/Outdoor",
+        "prompt": "Is this for indoor or outdoor use?",
+        "options": ["Indoor", "Outdoor", "Both", "Unknown"],
+        "inferencePatterns": ["\\boutdoor\\b", "\\bindoor\\b", "\\bgarden\\b", "\\bpatio\\b"],
+        "confidenceThreshold": 0.75
+      },
+      {
+        "key": "household_commercial",
+        "label": "Household/Commercial",
+        "prompt": "Is this household or commercial furniture?",
+        "options": ["Household", "Commercial", "Unknown"],
+        "inferencePatterns": ["\\bhousehold\\b", "\\bcommercial\\b", "\\boffice\\b"],
+        "confidenceThreshold": 0.7
+      },
+      {
+        "key": "complete_knockdown",
+        "label": "Complete/Knock Down",
+        "prompt": "Is this complete or knock-down (KD)?",
+        "options": ["Complete", "Knock Down", "Unknown"],
+        "inferencePatterns": ["\\bknock.?down\\b", "\\bkd\\b", "\\bassembled\\b", "\\bready.?assembled\\b"],
+        "confidenceThreshold": 0.75
+      }
+    ],
+    "optionalAttributes": [
+      { "key": "dimensions", "label": "Dimensions", "prompt": "What are the dimensions?" },
+      { "key": "brand", "label": "Brand", "prompt": "What is the brand?" }
+    ],
+    "questionOrder": ["material", "indoor_outdoor", "household_commercial", "complete_knockdown", "dimensions", "brand"],
+    "validationRules": []
+  },
+  {
+    "productFamily": "Automotive",
+    "industry": "automotive",
+    "typicalChapters": ["87", "40", "84", "85"],
+    "requiredAttributes": [
+      {
+        "key": "vehicle_part",
+        "label": "Vehicle Part",
+        "prompt": "What vehicle part is this?",
+        "confidenceThreshold": 0.7
+      },
+      {
+        "key": "oem_replacement",
+        "label": "OEM/Replacement",
+        "prompt": "Is this OEM or aftermarket replacement?",
+        "options": ["OEM", "Replacement", "Unknown"],
+        "inferencePatterns": ["\\boem\\b", "\\baftermarket\\b", "\\breplacement\\b", "\\bgenuine\\b"],
+        "confidenceThreshold": 0.75
+      },
+      {
+        "key": "material",
+        "label": "Material",
+        "prompt": "What is the primary material?",
+        "confidenceThreshold": 0.7
+      },
+      {
+        "key": "system",
+        "label": "System",
+        "prompt": "Which vehicle system does this belong to?",
+        "options": ["Engine", "Body", "Suspension", "Brake", "Electrical", "Transmission", "Other"],
+        "inferencePatterns": ["\\bengine\\b", "\\bsuspension\\b", "\\bbrake\\b", "\\bbody\\b", "\\btransmission\\b"],
+        "confidenceThreshold": 0.75
+      },
+      {
+        "key": "engine_body_suspension",
+        "label": "Engine/Body/Suspension",
+        "prompt": "Is this primarily engine, body, or suspension related?",
+        "options": ["Engine", "Body", "Suspension", "Other"],
+        "confidenceThreshold": 0.75
+      }
+    ],
+    "optionalAttributes": [
+      { "key": "make", "label": "Make", "prompt": "What vehicle make?" },
+      { "key": "model", "label": "Model", "prompt": "What vehicle model?" },
+      { "key": "year", "label": "Year", "prompt": "What model year?", "inferencePatterns": ["\\b(19|20)\\d{2}\\b"] }
+    ],
+    "questionOrder": ["vehicle_part", "oem_replacement", "material", "system", "engine_body_suspension", "make", "model", "year"],
+    "validationRules": []
+  },
+  {
+    "productFamily": "Construction",
+    "industry": "construction",
+    "typicalChapters": ["39", "68", "69", "70", "72", "73", "74", "76"],
+    "requiredAttributes": [
+      {
+        "key": "material",
+        "label": "Material",
+        "prompt": "What material is this made from?",
+        "inferencePatterns": ["\\bpvc\\b", "\\bhdpe\\b", "\\bsteel\\b", "\\bcopper\\b", "\\baluminium\\b", "\\baluminum\\b"],
+        "confidenceThreshold": 0.8
+      },
+      {
+        "key": "product_form",
+        "label": "Product Form",
+        "prompt": "What form is this (pipe, fitting, sheet, bar, etc.)?",
+        "inferencePatterns": ["\\bpipe\\b", "\\bfitting\\b", "\\bsheet\\b", "\\bbar\\b", "\\btube\\b", "\\bvalve\\b"],
+        "confidenceThreshold": 0.85
+      },
+      {
+        "key": "diameter",
+        "label": "Diameter / Size",
+        "prompt": "What is the diameter or size?",
+        "inferencePatterns": ["\\b(\\d+(?:\\.\\d+)?)\\s*(mm|cm|in|inch|\")\\b", "\\b(\\d+/\\d+)\\s*\"?"],
+        "confidenceThreshold": 0.8
+      }
+    ],
+    "optionalAttributes": [
+      { "key": "brand", "label": "Brand", "prompt": "What is the brand?" },
+      { "key": "standard", "label": "Standard", "prompt": "What standard/spec (ASTM, BS, etc.)?" }
+    ],
+    "questionOrder": ["material", "product_form", "diameter", "brand", "standard"],
+    "validationRules": []
+  },
+  {
+    "productFamily": "Medical Device",
+    "industry": "medical",
+    "typicalChapters": ["90", "30", "40"],
+    "requiredAttributes": [
+      {
+        "key": "sterile",
+        "label": "Sterile",
+        "prompt": "Is this sterile?",
+        "options": ["Yes", "No", "Unknown"],
+        "inferencePatterns": ["\\bsterile\\b"],
+        "confidenceThreshold": 0.85
+      },
+      {
+        "key": "disposable",
+        "label": "Disposable",
+        "prompt": "Is this disposable / single-use?",
+        "options": ["Yes", "No", "Unknown"],
+        "inferencePatterns": ["\\bdisposable\\b", "\\bsingle.?use\\b"],
+        "confidenceThreshold": 0.8
+      },
+      {
+        "key": "device_type",
+        "label": "Device Type",
+        "prompt": "What type of medical device is this?",
+        "confidenceThreshold": 0.7
+      }
+    ],
+    "optionalAttributes": [
+      { "key": "brand", "label": "Brand", "prompt": "What is the brand?" },
+      { "key": "model", "label": "Model", "prompt": "What is the model?" }
+    ],
+    "questionOrder": ["device_type", "sterile", "disposable", "brand", "model"],
+    "validationRules": []
+  },
+  {
+    "productFamily": "Printing Consumable",
+    "industry": "printing",
+    "typicalChapters": ["84", "96"],
+    "requiredAttributes": [
+      {
+        "key": "consumable_type",
+        "label": "Consumable Type",
+        "prompt": "What type of printing consumable is this?",
+        "options": ["Printer ribbon", "Ink cartridge", "Toner cartridge", "Cleaning roller", "Printhead", "Other"],
+        "inferencePatterns": ["\\bymcko\\b", "\\bribbon\\b", "\\btoner\\b", "\\bink\\s*cartridge\\b"],
+        "confidenceThreshold": 0.75
+      },
+      {
+        "key": "printer_use",
+        "label": "Printer Use",
+        "prompt": "What printer / use is this for?",
+        "options": ["ID card printer", "Document printer", "Label printer", "Other", "Unknown"],
+        "inferencePatterns": ["\\bid\\s*card\\b", "\\bdtc\\d+\\b", "\\bfargo\\b", "\\bzebra\\b"],
+        "confidenceThreshold": 0.7
+      }
+    ],
+    "optionalAttributes": [
+      { "key": "brand", "label": "Brand", "prompt": "What is the brand?" },
+      { "key": "model", "label": "Model / SKU", "prompt": "What is the model or SKU?" },
+      { "key": "images_yield", "label": "Image Yield", "prompt": "How many images / prints does it yield?" }
+    ],
+    "questionOrder": ["consumable_type", "printer_use", "brand", "model", "images_yield"],
+    "validationRules": []
+  },
+  {
+    "productFamily": "General Goods",
+    "industry": "consumer",
+    "typicalChapters": [],
+    "requiredAttributes": [
+      {
+        "key": "material",
+        "label": "Material",
+        "prompt": "What is the primary material?",
+        "confidenceThreshold": 0.7
+      },
+      {
+        "key": "primary_function",
+        "label": "Primary Function",
+        "prompt": "What is the primary function / use?",
+        "confidenceThreshold": 0.65
+      }
+    ],
+    "optionalAttributes": [
+      { "key": "brand", "label": "Brand", "prompt": "What is the brand?" },
+      { "key": "model", "label": "Model", "prompt": "What is the model?" }
+    ],
+    "questionOrder": ["material", "primary_function", "brand", "model"],
+    "validationRules": []
+  }
+]

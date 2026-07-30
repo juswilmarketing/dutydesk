@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="DutyDesk">
+  <rect width="512" height="512" rx="96" fill="#0f1520"/>
+  <rect x="40" y="40" width="432" height="432" rx="72" fill="none" stroke="#4a8fd4" stroke-width="14"/>
+  <path d="M148 168h216v28H148zm0 74h216v28H148zm0 74h148v28H148z" fill="#e8edf5"/>
+  <circle cx="368" cy="316" r="36" fill="#4a8fd4"/>
+  <text x="256" y="118" text-anchor="middle" font-family="system-ui,Segoe UI,sans-serif" font-size="52" font-weight="700" fill="#4a8fd4">DutyDesk</text>
+</svg>

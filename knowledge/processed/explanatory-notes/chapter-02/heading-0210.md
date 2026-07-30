@@ -1,0 +1,64 @@
+# Heading 02.10 — 02.10 - Meat and edible meat offal, salted, in brine, dried or smoked; edible flours and meals of meat or meat offal.
+
+## Heading code
+02.10
+
+## Title
+02.10 - Meat and edible meat offal, salted, in brine, dried or smoked; edible flours and meals of meat or meat offal.
+
+## Explanatory note
+- Meat of swine :
+0210.11 - - Hams, shoulders and cuts thereof, with bone in
+0210.12 - - Bellies (streaky) and cuts thereof
+0210.19 - - Other
+0210.20 - Meat of bovine animals
+- Other, including edible flours and meals of meat or meat offal :
+0210.91 - - Of primates
+0210.92 - - Of whales, dolphins and porpoises (mammals of the order Cetacea); of manatees and dugongs (mammals of the order Sirenia); of seals, sea lions and walruses (mammals of the suborder Pinnipedia)
+0210.93 - - Of reptiles (including snakes and turtles)
+0210.99 - - Other
+
+This heading applies to all kinds of meat and edible meat offal which have been prepared as described in the heading, other than pig fat, free of lean meat, and poultry fat, not rendered or otherwise extracted (heading 02.09). The heading includes streaky pork and similar meats interlarded with a high proportion of fat, and fat with an adhering layer of meat, provided they have been prepared as described in the heading.
+
+Salted, dried (including dehydrated or freeze-dried) or smoked meat (e.g., bacon, ham, shoulder) remains classified in this heading if it has been enclosed in guts, stomachs, bladders, skins or similar casings (natural or artificial), provided that it has not been previously chopped or minced and combined with other ingredients (heading 16.01).
+
+Edible flours and meals of meat or meat offal also fall in this heading; flours and meals of meat or meat offal unfit for human consumption (e.g., for feeding animals) are excluded (heading 23.01).
+
+The provisions of Explanatory Note to heading 02.06 apply, mutatis mutandis, to edible meat offal of this heading.
+
+
+
+## Subheading notes
+
+### 0210.11 — - Hams, shoulders and cuts thereof, with bone in
+
+### 0210.12 — - Bellies (streaky) and cuts thereof
+
+### 0210.19 — - Other
+
+### 0210.20 — Meat of bovine animals
+
+### 0210.91 — - Of primates
+
+### 0210.92 — - Of whales, dolphins and porpoises (mammals of the order Cetacea); of manatees and dugongs (mammals of the order Sirenia); of seals, sea lions and walruses (mammals of the suborder Pinnipedia)
+
+### 0210.93 — - Of reptiles (including snakes and turtles)
+
+### 0210.99 — - Other
+
+## Related headings
+
+- 02.09
+- 16.01
+- 23.01
+- 02.06
+
+
+
+## Keywords
+meat, heading, 0210, offal, edible, other, flours, meals, with, this, been, dried, including, mammals, salted, smoked, cuts, thereof, streaky, animals
+
+## Source
+- PDF: Explanatory Notes CH02.pdf
+- Page(s): 1
+- Chapter: 02

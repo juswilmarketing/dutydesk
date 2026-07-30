@@ -1,0 +1,55 @@
+[
+  {
+    "industry_code": "electrical",
+    "product_family": null,
+    "priority": 10,
+    "questions": [
+      { "id": "voltage", "field": "voltage", "prompt": "Voltage?", "options": ["110V", "120V", "220V", "240V", "380V", "Other"], "required": false },
+      { "id": "power", "field": "power", "prompt": "Power rating?", "required": false },
+      { "id": "phase", "field": "phase", "prompt": "Single Phase or Three Phase?", "options": ["Single Phase", "Three Phase", "Unknown"], "required": false }
+    ]
+  },
+  {
+    "industry_code": "food",
+    "product_family": null,
+    "priority": 10,
+    "questions": [
+      { "id": "food_state", "field": "food_state", "prompt": "Fresh, frozen, prepared, or preserved?", "options": ["Fresh", "Frozen", "Prepared", "Preserved", "Unknown"], "required": true }
+    ]
+  },
+  {
+    "industry_code": "footwear",
+    "product_family": "Footwear",
+    "priority": 5,
+    "questions": [
+      { "id": "upper_material", "field": "upper_material", "prompt": "Upper material?", "options": ["Leather", "Textile", "Rubber/Plastic", "Other", "Unknown"], "required": true },
+      { "id": "outer_sole", "field": "outer_sole", "prompt": "Outer sole material?", "options": ["Rubber", "Plastic", "Leather", "Other", "Unknown"], "required": false }
+    ]
+  },
+  {
+    "industry_code": "medical",
+    "product_family": null,
+    "priority": 10,
+    "questions": [
+      { "id": "sterile", "field": "sterile", "prompt": "Sterile?", "options": ["Yes", "No", "Unknown"], "required": false },
+      { "id": "disposable", "field": "disposable", "prompt": "Disposable or reusable?", "options": ["Disposable", "Reusable", "Unknown"], "required": false }
+    ]
+  },
+  {
+    "industry_code": "construction",
+    "product_family": "Pipe",
+    "priority": 5,
+    "questions": [
+      { "id": "pipe_material", "field": "material", "prompt": "Pipe material?", "options": ["PVC", "Steel", "Copper", "HDPE", "Other"], "required": true },
+      { "id": "diameter", "field": "diameter", "prompt": "Diameter / size?", "required": false }
+    ]
+  },
+  {
+    "industry_code": "automotive",
+    "product_family": null,
+    "priority": 20,
+    "questions": [
+      { "id": "part_type", "field": "part_type", "prompt": "OEM, replacement, body, or engine part?", "options": ["OEM", "Replacement", "Body Part", "Engine Part", "Other", "Unknown"], "required": false }
+    ]
+  }
+]

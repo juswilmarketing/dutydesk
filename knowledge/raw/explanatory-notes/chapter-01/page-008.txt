@@ -1,0 +1,47 @@
+01.06
+
+01.06 - Other live animals.
+
+- Mammals :
+
+0106.11 - - Primates
+
+0106.12 - - Whales, dolphins and porpoises (mammals of the order Cetacea); manatees and dugongs (mammals of the order Sirenia); seals, sea lions and walruses (mammals of the suborder Pinnipedia)
+
+0106.13 - - Camels and other camelids (Camelidae)
+
+0106.14 - - Rabbits and hares
+
+0106.19 - - Other
+
+0106.20 - Reptiles (including snakes and turtles)
+
+- Birds :
+
+0106.31 - - Birds of prey
+
+0106.32 - - Psittaciformes (including parrots, parakeets, macaws and cockatoos)
+
+0106.33 - - Ostriches; emus (Dromaius novaehollandiae)
+
+0106.39 - - Other
+
+- Insects :
+
+0106.41 - - Bees
+
+0106.49 - - Other
+
+0106.90 - Other
+
+This heading includes, inter alia, the following domestic or wild animals :
+
+(A) Mammals :
+
+(1) Primates.
+
+(2) Whales, dolphins and porpoises (mammals of the order Cetacea); manatees and dugongs (mammals of the order Sirenia) ; seals, sea lions and walruses (mammals of the suborder Pinnipedia).
+
+(3) Other (e.g., reindeer, cats, dogs, lions, tigers, bears, elephants, camels (including dromedaries), zebras, rabbits, hares, deer, antelope (other than those of the sub-family Bovinae), chamois, foxes, minks and other animals for fur farms).
+
+(B) Reptiles (including snakes and turtles).

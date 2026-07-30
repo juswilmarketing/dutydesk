@@ -1,0 +1,258 @@
+{
+  "chapter": "01",
+  "chapter_title": "Chapter 1",
+  "source_pdf": "Explanatory Notes CH01.pdf",
+  "heading_count": 7,
+  "headings": [
+    {
+      "chapter": "01",
+      "heading": "01.01",
+      "title": "01.01 - Live horses, asses, mules and hinnies (+).",
+      "keywords": [
+        "0101",
+        "bred",
+        "horses",
+        "asses",
+        "mules",
+        "pure",
+        "breeding",
+        "animals",
+        "subheading",
+        "hinnies",
+        "other",
+        "covers",
+        "live",
+        "this",
+        "heading",
+        "mares",
+        "stallions",
+        "geldings",
+        "foals",
+        "ponies"
+      ],
+      "includes": [],
+      "excludes": [],
+      "related_headings": [],
+      "source_pages": [
+        3
+      ],
+      "file_path": "knowledge/processed/explanatory-notes/chapter-01/heading-0101.md"
+    },
+    {
+      "chapter": "01",
+      "heading": "01.02",
+      "title": "01.02 - Live bovine animals (+).",
+      "keywords": [
+        "animals",
+        "0102",
+        "buffalo",
+        "bison",
+        "genus",
+        "bubalus",
+        "breeding",
+        "pure",
+        "bred",
+        "other",
+        "covers",
+        "syncerus",
+        "this",
+        "these",
+        "include",
+        "inter",
+        "alia",
+        "genera",
+        "such",
+        "bovine"
+      ],
+      "includes": [],
+      "excludes": [],
+      "related_headings": [],
+      "source_pages": [
+        4
+      ],
+      "file_path": "knowledge/processed/explanatory-notes/chapter-01/heading-0102.md"
+    },
+    {
+      "chapter": "01",
+      "heading": "01.03",
+      "title": "01.03 - Live swine (+).",
+      "keywords": [
+        "0103",
+        "pure",
+        "bred",
+        "breeding",
+        "animals",
+        "subheading",
+        "weighing",
+        "covers",
+        "pigs",
+        "wild",
+        "purposes",
+        "subheadings",
+        "weight",
+        "live",
+        "swine",
+        "other",
+        "less",
+        "than",
+        "more",
+        "this"
+      ],
+      "includes": [],
+      "excludes": [],
+      "related_headings": [],
+      "source_pages": [
+        5
+      ],
+      "file_path": "knowledge/processed/explanatory-notes/chapter-01/heading-0103.md"
+    },
+    {
+      "chapter": "01",
+      "heading": "01.04",
+      "title": "01.04 - Live sheep and goats.",
+      "keywords": [
+        "sheep",
+        "goats",
+        "0104",
+        "domestic",
+        "wild",
+        "live",
+        "this",
+        "heading",
+        "covers",
+        "rams",
+        "ewes",
+        "lambs",
+        "kids"
+      ],
+      "includes": [],
+      "excludes": [],
+      "related_headings": [],
+      "source_pages": [
+        6
+      ],
+      "file_path": "knowledge/processed/explanatory-notes/chapter-01/heading-0104.md"
+    },
+    {
+      "chapter": "01",
+      "heading": "01.05",
+      "title": "01.05 - Live poultry, that is to say, fowls of the species Gallus domesticus, ducks, geese, turkeys and guinea fowls (+).",
+      "keywords": [
+        "0105",
+        "fowls",
+        "species",
+        "gallus",
+        "domesticus",
+        "live",
+        "ducks",
+        "geese",
+        "other",
+        "heading",
+        "turkeys",
+        "guinea",
+        "birds",
+        "specified",
+        "wild",
+        "subheadings",
+        "weight",
+        "poultry",
+        "that",
+        "weighing"
+      ],
+      "includes": [],
+      "excludes": [],
+      "related_headings": [
+        "01.06"
+      ],
+      "source_pages": [
+        7
+      ],
+      "file_path": "knowledge/processed/explanatory-notes/chapter-01/heading-0105.md"
+    },
+    {
+      "chapter": "01",
+      "heading": "01.06",
+      "title": "01.06 - Other live animals.",
+      "keywords": [
+        "0106",
+        "other",
+        "mammals",
+        "order",
+        "including",
+        "animals",
+        "lions",
+        "primates",
+        "whales",
+        "dolphins",
+        "porpoises",
+        "cetacea",
+        "manatees",
+        "dugongs",
+        "sirenia",
+        "seals",
+        "walruses",
+        "suborder",
+        "pinnipedia",
+        "camels"
+      ],
+      "includes": [],
+      "excludes": [],
+      "related_headings": [],
+      "source_pages": [
+        7
+      ],
+      "file_path": "knowledge/processed/explanatory-notes/chapter-01/heading-0106.md"
+    },
+    {
+      "chapter": "01",
+      "heading": "01.06",
+      "title": "(C) Birds :",
+      "keywords": [
+        "birds",
+        "other",
+        "heading",
+        "wild",
+        "travelling",
+        "prey",
+        "psittaciformes",
+        "including",
+        "parrots",
+        "parakeets",
+        "macaws",
+        "cockatoos",
+        "partridges",
+        "pheasants",
+        "quail",
+        "woodcocks",
+        "snipe",
+        "pigeons",
+        "grouse",
+        "ortolan"
+      ],
+      "includes": [],
+      "excludes": [],
+      "related_headings": [
+        "01.05",
+        "95.08"
+      ],
+      "source_pages": [
+        7
+      ],
+      "file_path": "knowledge/processed/explanatory-notes/chapter-01/heading-0106.md"
+    }
+  ],
+  "files": {
+    "chapter_notes": "knowledge/processed/explanatory-notes/chapter-01/chapter-notes.md",
+    "general": "knowledge/processed/explanatory-notes/chapter-01/general.md",
+    "headings": [
+      "knowledge/processed/explanatory-notes/chapter-01/heading-0101.md",
+      "knowledge/processed/explanatory-notes/chapter-01/heading-0102.md",
+      "knowledge/processed/explanatory-notes/chapter-01/heading-0103.md",
+      "knowledge/processed/explanatory-notes/chapter-01/heading-0104.md",
+      "knowledge/processed/explanatory-notes/chapter-01/heading-0105.md",
+      "knowledge/processed/explanatory-notes/chapter-01/heading-0106.md",
+      "knowledge/processed/explanatory-notes/chapter-01/heading-0106.md"
+    ]
+  },
+  "generated_at": "2026-07-09T03:20:00.465Z"
+}

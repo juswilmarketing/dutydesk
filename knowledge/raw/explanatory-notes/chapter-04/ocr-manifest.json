@@ -1,0 +1,69 @@
+{
+  "pages": [
+    {
+      "page": 1,
+      "file": "page-001.txt",
+      "chars": 2258
+    },
+    {
+      "page": 2,
+      "file": "page-002.txt",
+      "chars": 2161
+    },
+    {
+      "page": 3,
+      "file": "page-003.txt",
+      "chars": 997
+    },
+    {
+      "page": 4,
+      "file": "page-004.txt",
+      "chars": 1304
+    },
+    {
+      "page": 5,
+      "file": "page-005.txt",
+      "chars": 1263
+    },
+    {
+      "page": 6,
+      "file": "page-006.txt",
+      "chars": 2218
+    },
+    {
+      "page": 7,
+      "file": "page-007.txt",
+      "chars": 2025
+    },
+    {
+      "page": 8,
+      "file": "page-008.txt",
+      "chars": 2007
+    },
+    {
+      "page": 9,
+      "file": "page-009.txt",
+      "chars": 488
+    },
+    {
+      "page": 10,
+      "file": "page-010.txt",
+      "chars": 446
+    },
+    {
+      "page": 11,
+      "file": "page-011.txt",
+      "chars": 978
+    },
+    {
+      "page": 12,
+      "file": "page-012.txt",
+      "chars": 400
+    },
+    {
+      "page": 13,
+      "file": "page-013.txt",
+      "chars": 982
+    }
+  ]
+}

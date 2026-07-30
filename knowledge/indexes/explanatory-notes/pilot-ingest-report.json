@@ -1,0 +1,39 @@
+{
+  "chapters_processed": 0,
+  "total_pages_ocred": 0,
+  "total_headings": 0,
+  "failed_pages": [],
+  "chapter_results": [
+    {
+      "chapter": "03",
+      "filename": "Explanatory Notes CH03.pdf",
+      "pagesOcred": 0,
+      "headingsExtracted": 0,
+      "failedPages": [],
+      "outputPaths": [],
+      "ocrMethod": null,
+      "error": "Unexpected token 'e', \"error code: 524\n\" is not valid JSON"
+    },
+    {
+      "chapter": "05",
+      "filename": "Explanatory Notes CH05.pdf",
+      "pagesOcred": 0,
+      "headingsExtracted": 0,
+      "failedPages": [],
+      "outputPaths": [],
+      "ocrMethod": null,
+      "error": "Unexpected token 'e', \"error code: 524\n\" is not valid JSON"
+    }
+  ],
+  "errors": [
+    {
+      "chapter": "03",
+      "error": "Unexpected token 'e', \"error code: 524\n\" is not valid JSON"
+    },
+    {
+      "chapter": "05",
+      "error": "Unexpected token 'e', \"error code: 524\n\" is not valid JSON"
+    }
+  ],
+  "generated_at": "2026-07-09T03:32:52.523Z"
+}

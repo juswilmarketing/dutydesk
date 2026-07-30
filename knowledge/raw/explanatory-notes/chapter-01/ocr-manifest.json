@@ -1,0 +1,49 @@
+{
+  "pages": [
+    {
+      "page": 1,
+      "file": "page-001.txt",
+      "chars": 424
+    },
+    {
+      "page": 2,
+      "file": "page-002.txt",
+      "chars": 834
+    },
+    {
+      "page": 3,
+      "file": "page-003.txt",
+      "chars": 646
+    },
+    {
+      "page": 4,
+      "file": "page-004.txt",
+      "chars": 2002
+    },
+    {
+      "page": 5,
+      "file": "page-005.txt",
+      "chars": 630
+    },
+    {
+      "page": 6,
+      "file": "page-006.txt",
+      "chars": 175
+    },
+    {
+      "page": 7,
+      "file": "page-007.txt",
+      "chars": 885
+    },
+    {
+      "page": 8,
+      "file": "page-008.txt",
+      "chars": 1267
+    },
+    {
+      "page": 9,
+      "file": "page-009.txt",
+      "chars": 584
+    }
+  ]
+}

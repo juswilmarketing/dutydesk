@@ -1,0 +1,59 @@
+# Heading 04.04 — 04.04 - Whey, whether or not concentrated or containing added sugar or other sweetening matter; products consisting of natural milk constituents, whether or not containing added sugar or other sweetening matter, not elsewhere specified or included.
+
+## Heading code
+04.04
+
+## Title
+04.04 - Whey, whether or not concentrated or containing added sugar or other sweetening matter; products consisting of natural milk constituents, whether or not containing added sugar or other sweetening matter, not elsewhere specified or included.
+
+## Explanatory note
+0404.10 - Whey and modified whey, whether or not concentrated or containing added sugar or other sweetening matter
+
+0404.90 - Other
+
+This heading covers whey (i.e., the natural constituents of milk which remain after the fat and casein have been removed) and modified whey (see Subheading Note 1 to this Chapter). These products may be in liquid, paste or solid (including frozen) form, and may be concentrated (e.g., in powder) or preserved.
+
+The heading also covers fresh or preserved products consisting of milk constituents, which do not have the same composition as the natural product, provided they are not more specifically covered elsewhere. Thus the heading includes products which lack one or more natural milk constituents, milk to which natural milk constituents have been added (to obtain, for example, a protein-rich product).
+
+Apart from natural milk constituents and the additives mentioned in the General Explanatory Note to this Chapter, the products of this heading may also contain added sugar or other sweetening matter.
+
+The powdered products of this heading, particularly whey, may contain small quantities of added lactic ferments, with a view to their use in prepared meat products or as additives for animal feed.
+
+The heading does not cover :
+
+(a) Skimmed milk or reconstituted milk having the same qualitative and quantitative composition as natural milk (heading 04.01 or 04.02).
+
+(b) Whey cheese (heading 04.06).
+
+(c) Products obtained from whey, containing by weight more than 95 % lactose, expressed as anhydrous lactose, calculated on the dry matter (heading 17.02).
+
+(d) Food preparations based on natural milk constituents but containing other substances not allowed in the products of this Chapter (in particular, heading 19.01).
+
+(e) Albumins (including concentrates of two or more whey proteins, containing by weight more than 80 % whey proteins, calculated on the dry matter) (heading 35.02) or globulins (heading 35.04).
+
+
+
+## Subheading notes
+
+### 0404.10 — Whey and modified whey, whether or not concentrated or containing added sugar or other sweetening matter
+
+### 0404.90 — Other
+
+## Related headings
+
+- 04.01
+- 04.06
+- 17.02
+- 19.01
+- 35.02
+- 35.04
+
+
+
+## Keywords
+heading, milk, whey, products, natural, constituents, containing, added, other, matter, this, more, sugar, sweetening, which, whether, concentrated, have, chapter, consisting
+
+## Source
+- PDF: Explanatory Notes CH04.pdf
+- Page(s): 6
+- Chapter: 04

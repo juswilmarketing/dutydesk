@@ -1,0 +1,26 @@
+{
+  "name": "@pas/worker",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@pas/product-intelligence": "*",
+    "@pas/shared-types": "*",
+    "@pas/tariff-data": "*",
+    "@pas/tax-engine": "*",
+    "hono": "^4.6.14",
+    "pdf-lib": "^1.17.1"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20241218.0",
+    "typescript": "^5.7.2",
+    "vitest": "^3.0.5",
+    "wrangler": "^3.99.0"
+  }
+}

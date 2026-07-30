@@ -1,0 +1,92 @@
+# Heading 02.07 — 02.07 - Meat and edible offal, of the poultry of heading 01.05, fresh, chilled or frozen.
+
+## Heading code
+02.07
+
+## Title
+02.07 - Meat and edible offal, of the poultry of heading 01.05, fresh, chilled or frozen.
+
+## Explanatory note
+- Of fowls of the species Gallus domesticus :
+0207.11 - - Not cut in pieces, fresh or chilled
+0207.12 - - Not cut in pieces, frozen
+0207.13 - - Cuts and offal, fresh or chilled
+0207.14 - - Cuts and offal, frozen
+- Of turkeys :
+0207.24 - - Not cut in pieces, fresh or chilled
+0207.25 - - Not cut in pieces, frozen
+0207.26 - - Cuts and offal, fresh or chilled
+0207.27 - - Cuts and offal, frozen
+- Of ducks :
+0207.41 - - Not cut in pieces, fresh or chilled
+0207.42 - - Not cut in pieces, frozen
+0207.43 - - Fatty livers, fresh or chilled
+0207.44 - - Other, fresh or chilled
+0207.45 - - Other, frozen
+- Of geese :
+0207.51 - - Not cut in pieces, fresh or chilled
+0207.52 - - Not cut in pieces, frozen
+0207.53 - - Fatty livers, fresh or chilled
+0207.54 - - Other, fresh or chilled
+0207.55 - - Other, frozen
+0207.60 - Of guinea fowls
+
+This heading covers only fresh, chilled or frozen meat and edible offal of domestic poultry which, when live, are classified in heading 01.05.
+
+The poultry offal of greatest importance in international trade is chicken, goose or duck livers. These include "fatty livers" of geese or ducks which may be distinguished from other livers by the fact that they are much larger and heavier, firmer and richer in fat; their colour varies from whitish beige to light chestnut, while the other livers are in general of a dark or light reddish colour.
+
+
+
+## Subheading notes
+
+### 0207.11 — - Not cut in pieces, fresh or chilled
+
+### 0207.12 — - Not cut in pieces, frozen
+
+### 0207.13 — - Cuts and offal, fresh or chilled
+
+### 0207.14 — - Cuts and offal, frozen
+
+### 0207.24 — - Not cut in pieces, fresh or chilled
+
+### 0207.25 — - Not cut in pieces, frozen
+
+### 0207.26 — - Cuts and offal, fresh or chilled
+
+### 0207.27 — - Cuts and offal, frozen
+
+### 0207.41 — - Not cut in pieces, fresh or chilled
+
+### 0207.42 — - Not cut in pieces, frozen
+
+### 0207.43 — - Fatty livers, fresh or chilled
+
+### 0207.44 — - Other, fresh or chilled
+
+### 0207.45 — - Other, frozen
+
+### 0207.51 — - Not cut in pieces, fresh or chilled
+
+### 0207.52 — - Not cut in pieces, frozen
+
+### 0207.53 — - Fatty livers, fresh or chilled
+
+### 0207.54 — - Other, fresh or chilled
+
+### 0207.55 — - Other, frozen
+
+### 0207.60 — Of guinea fowls
+
+## Related headings
+
+- 01.05
+
+
+
+## Keywords
+0207, fresh, chilled, frozen, pieces, offal, livers, other, cuts, poultry, heading, fatty, meat, edible, fowls, ducks, geese, which, from, colour
+
+## Source
+- PDF: Explanatory Notes CH02.pdf
+- Page(s): 2
+- Chapter: 02

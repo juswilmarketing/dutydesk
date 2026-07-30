@@ -1,0 +1,1146 @@
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root,
+  [data-theme='dark'] {
+    --bg: #0f1520;
+    --surface: #1a2235;
+    --surface2: #141c2b;
+    --border: #2a3650;
+    --text: #e8edf5;
+    --text2: #8a97b0;
+    --text3: #4d5c78;
+    --accent: #4a8fd4;
+    --accent-light: #1a2d48;
+    --accent2: #e8521a;
+    --accent2-light: #2a1810;
+    --green: #2ecc8e;
+    --green-light: #0f2d23;
+    --red: #e05c5c;
+    --red-light: #2d1212;
+    --gold: #d4a24a;
+    --gold-light: #2a2010;
+    --header-bg: #0a1018;
+    --header-text: #e8edf5;
+    --header-muted: rgba(232, 237, 245, 0.45);
+    --nav-bg: #0d1420;
+    --nav-active-bg: #1e2d45;
+    --radius: 14px;
+    --radius-sm: 8px;
+    --shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 4px 24px rgba(0, 0, 0, 0.4);
+    color-scheme: dark;
+  }
+
+  [data-theme='light'] {
+    --bg: #f6f7fb;
+    --surface: #ffffff;
+    --surface2: #f0f2f7;
+    --border: #e4e8f0;
+    --text: #0f1724;
+    --text2: #5a6478;
+    --text3: #99a3b4;
+    --accent: #1b4f8a;
+    --accent-light: #e8effe;
+    --accent2: #c0392b;
+    --accent2-light: #fff1ec;
+    --green: #1a7f5a;
+    --green-light: #e6f7f1;
+    --red: #c0392b;
+    --red-light: #fdecea;
+    --gold: #b07d2b;
+    --gold-light: #fdf6e3;
+    --header-bg: #ffffff;
+    --header-text: #0f1724;
+    --header-muted: #5a6478;
+    --nav-bg: #eef1f7;
+    --nav-active-bg: #ffffff;
+    --shadow: 0 2px 12px rgba(15, 23, 36, 0.07);
+    --shadow-md: 0 4px 24px rgba(15, 23, 36, 0.1);
+    color-scheme: light;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    font-family: 'Geist', system-ui, sans-serif;
+    font-size: 15px;
+    line-height: 1.5;
+    background: var(--bg);
+    color: var(--text);
+    margin: 0;
+    min-height: 100vh;
+    min-height: 100dvh;
+    -webkit-font-smoothing: antialiased;
+    transition: background 0.2s, color 0.2s;
+    padding-left: env(safe-area-inset-left, 0);
+    padding-right: env(safe-area-inset-right, 0);
+  }
+
+  input:not([type='checkbox']):not([type='radio']),
+  button,
+  select,
+  textarea {
+    font-family: inherit;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  input[type='checkbox'],
+  input[type='radio'] {
+    width: 1rem;
+    height: 1rem;
+    margin: 0;
+    flex-shrink: 0;
+    accent-color: var(--accent);
+    cursor: pointer;
+  }
+
+  input:focus,
+  select:focus,
+  textarea:focus {
+    outline: none;
+  }
+
+  ::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 99px;
+  }
+}
+
+@layer components {
+  .dd-page {
+    @apply space-y-6;
+  }
+
+  .dd-page-header {
+    @apply mb-2 flex flex-wrap items-start justify-between gap-4;
+  }
+
+  .dd-page-header-icon {
+    @apply flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-2xl;
+    background: var(--accent-light);
+    color: var(--accent);
+  }
+
+  .dd-page-title {
+    @apply text-xl font-bold tracking-tight sm:text-2xl;
+    color: var(--text);
+  }
+
+  .dd-page-desc {
+    @apply mt-1 text-sm leading-relaxed sm:text-base;
+    color: var(--text2);
+  }
+
+  .dd-section-title {
+    @apply mb-4 text-base font-bold sm:text-lg;
+    color: var(--accent2);
+  }
+
+  .dd-tabs-wrap {
+    @apply relative mb-6;
+  }
+
+  .dd-tabs {
+    @apply flex gap-1.5 overflow-x-auto rounded-xl p-1.5;
+    background: var(--nav-bg);
+    border: 1px solid var(--border);
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, var(--accent) 45%, var(--border)) transparent;
+    -webkit-overflow-scrolling: touch;
+  }
+  .dd-tabs::-webkit-scrollbar {
+    height: 6px;
+  }
+  .dd-tabs::-webkit-scrollbar-track {
+    background: transparent;
+    margin: 0 8px 2px;
+  }
+  .dd-tabs::-webkit-scrollbar-thumb {
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--accent) 40%, var(--border));
+  }
+  .dd-tabs:hover::-webkit-scrollbar-thumb {
+    background: var(--accent);
+  }
+
+  .dd-tabs-fade {
+    @apply pointer-events-none absolute top-0 z-10 h-full w-10;
+  }
+  .dd-tabs-fade-left {
+    left: 0;
+    background: linear-gradient(to right, var(--bg) 15%, transparent);
+  }
+  .dd-tabs-fade-right {
+    right: 0;
+    background: linear-gradient(to left, var(--bg) 15%, transparent);
+  }
+
+  .dd-tabs-scroll-btn {
+    @apply absolute top-1/2 z-20 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border shadow-md transition;
+    border-color: var(--border);
+    background: var(--surface);
+    color: var(--text);
+  }
+  .dd-tabs-scroll-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: var(--accent-light);
+  }
+  .dd-tabs-scroll-left {
+    left: 4px;
+  }
+  .dd-tabs-scroll-right {
+    right: 4px;
+  }
+
+  .dd-tabs-scroll-hint {
+    @apply pointer-events-none absolute -bottom-5 right-0 text-[10px] font-medium;
+    color: var(--text2);
+  }
+
+  .dd-tab {
+    @apply shrink-0 cursor-pointer whitespace-nowrap rounded-[10px] border-none px-4 py-2.5 text-sm font-medium transition;
+    background: transparent;
+    color: var(--text2);
+  }
+  .dd-tab:hover:not(.dd-tab-active):not(:disabled) {
+    background: color-mix(in srgb, var(--text) 6%, transparent);
+    color: var(--text);
+  }
+  .dd-tab-active {
+    background: var(--nav-active-bg);
+    color: var(--accent);
+    font-weight: 600;
+    box-shadow: var(--shadow);
+  }
+  .dd-tab:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  .dd-tab-badge {
+    @apply ml-1.5 inline-flex rounded-full px-2 py-0.5 text-xs font-bold text-white;
+    background: var(--accent2);
+  }
+
+  .dd-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+  }
+
+  .dd-input {
+    @apply w-full rounded-lg border px-3.5 py-2.5 text-base;
+    border-color: var(--border);
+    background: var(--surface2);
+    color: var(--text);
+    min-height: 2.75rem;
+  }
+  .dd-input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 15%, transparent);
+  }
+
+  .dd-label {
+    @apply mb-1.5 block text-xs font-semibold uppercase tracking-wide;
+    color: var(--text2);
+  }
+
+  .dd-label-with-tip {
+    @apply flex items-center gap-1.5 normal-case tracking-normal;
+    font-size: 0.875rem;
+    text-transform: none;
+  }
+
+  .form-label {
+    @apply mb-1.5 block text-xs font-semibold uppercase tracking-wide;
+    color: var(--text2);
+  }
+
+  .dd-invoice-card {
+    @apply mb-2 flex cursor-pointer items-center justify-between rounded-[var(--radius)] border px-3.5 py-3 transition;
+    background: var(--surface);
+    border-color: var(--border);
+  }
+  .dd-invoice-card:hover {
+    border-color: var(--accent);
+    box-shadow: var(--shadow);
+  }
+  .dd-invoice-card-active {
+    border-color: var(--accent);
+    background: var(--accent-light);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 12%, transparent);
+  }
+
+  .dd-badge {
+    @apply inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold;
+  }
+
+  .dd-modal-overlay {
+    @apply fixed inset-0 z-[9999] flex items-end justify-center p-0 sm:items-center sm:p-4;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+    animation: fadeIn 0.15s ease;
+  }
+
+  .dd-modal-panel {
+    @apply flex max-h-[94vh] w-full flex-col overflow-hidden shadow-2xl sm:max-h-[90vh] sm:rounded-[18px];
+    background: var(--surface);
+    animation: fadeIn 0.2s ease;
+  }
+
+  .dd-modal-section {
+    @apply rounded-xl border p-4;
+    border-color: var(--border);
+    background: var(--surface2);
+  }
+
+  .dd-modal-footer {
+    @apply shrink-0 border-t px-4 py-3 sm:px-5;
+    border-color: var(--border);
+    background: var(--surface);
+  }
+
+  .dd-ec75-panel {
+    background: #fffde0;
+    border-color: #e6c800;
+    color: #7a6000;
+  }
+
+  [data-theme='dark'] .dd-ec75-panel {
+    background: #2a2410;
+    border-color: #8a7200;
+    color: #e6c800;
+  }
+
+  /* Shared table styling */
+  .data-table {
+    @apply w-full border-collapse text-sm;
+  }
+  .data-table thead tr {
+    background: var(--surface2);
+  }
+  .data-table th {
+    @apply whitespace-nowrap px-4 py-3 text-left text-xs font-bold uppercase tracking-wide;
+    color: var(--text2);
+    border-bottom: 1px solid var(--border);
+  }
+  .data-table td {
+    @apply px-4 py-3;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+  }
+  .data-table tbody tr:hover td {
+    background: color-mix(in srgb, var(--accent) 4%, transparent);
+  }
+
+  /* Invoice list cards */
+  .invoice-card {
+    @apply mb-2.5 flex cursor-pointer items-center justify-between rounded-[var(--radius)] border px-4 py-3.5 transition;
+    background: var(--surface);
+    border-color: var(--border);
+  }
+  .invoice-card:hover {
+    border-color: var(--accent);
+    box-shadow: var(--shadow);
+  }
+  .invoice-card.dd-invoice-card-active,
+  .invoice-card-active {
+    border-color: var(--accent);
+    background: var(--accent-light);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 12%, transparent);
+  }
+
+  /* Banners — aliases for legacy class names */
+  .notif-info,
+  .dd-notif-info {
+    @apply rounded-[10px] border px-5 py-4 text-sm leading-relaxed;
+    background: var(--accent-light);
+    border-color: color-mix(in srgb, var(--accent) 25%, transparent);
+    color: var(--text);
+  }
+
+  .notif-warn,
+  .dd-notif-warn {
+    @apply rounded-[10px] border px-5 py-4 text-sm leading-relaxed;
+    background: var(--gold-light);
+    border-color: color-mix(in srgb, var(--gold) 35%, transparent);
+    color: var(--text);
+  }
+
+  .notif-error,
+  .dd-notif-error {
+    @apply rounded-[10px] border px-5 py-4 text-sm leading-relaxed;
+    background: var(--red-light);
+    border-color: color-mix(in srgb, var(--red) 35%, transparent);
+    color: var(--red);
+  }
+
+  .divider-label {
+    @apply mb-3 mt-6 text-xs font-semibold uppercase tracking-[0.1em];
+    color: var(--text2);
+  }
+
+  .empty-state {
+    @apply rounded-[var(--radius)] border px-8 py-14 text-center;
+    background: var(--surface);
+    border-color: var(--border);
+  }
+  .empty-icon {
+    @apply mb-3 text-4xl;
+  }
+
+  .processing-card {
+    @apply rounded-[var(--radius)] border px-8 py-12 text-center;
+    background: var(--surface);
+    border-color: var(--border);
+    box-shadow: var(--shadow-md);
+  }
+
+  .code-chip {
+    @apply inline-block rounded-md px-1.5 py-0.5 font-mono text-[10px] font-semibold;
+    background: var(--accent-light);
+    color: var(--accent);
+  }
+
+  .dd-sticky-actions {
+    @apply sticky z-10 border-none p-4;
+    bottom: 1rem;
+    box-shadow: var(--shadow-md);
+  }
+
+  .dd-dropdown {
+    @apply overflow-y-auto rounded-[var(--radius)] border;
+    background: var(--surface);
+    border-color: var(--border);
+    box-shadow: var(--shadow-md);
+    color: var(--text);
+  }
+
+  .dd-dropdown-header {
+    @apply border-b px-3 py-2 text-[10px] font-semibold uppercase tracking-wide;
+    border-color: var(--border);
+    background: var(--surface2);
+    color: var(--text2);
+  }
+
+  .dd-dropdown-item {
+    @apply flex w-full items-start justify-between gap-3 border-b px-3 py-2.5 text-left transition last:border-0;
+    border-color: var(--border);
+    color: var(--text);
+    background: transparent;
+  }
+  .dd-dropdown-item:hover,
+  .dd-dropdown-item-active {
+    background: var(--gold-light);
+  }
+
+  .dd-tariff-picker {
+    min-width: 0;
+    max-width: 280px;
+  }
+
+  .dd-tariff-suggestion-inline {
+    @apply rounded-lg border p-2;
+    border-color: color-mix(in srgb, var(--gold) 45%, var(--border));
+    background: color-mix(in srgb, var(--gold-light) 70%, var(--surface));
+  }
+
+  .dd-tariff-suggestion-inline-label {
+    @apply mb-1.5 text-[10px] font-bold uppercase tracking-wide;
+    color: var(--gold);
+  }
+
+  .dd-tariff-suggestion-row {
+    @apply flex w-full items-center gap-2 rounded-md border px-2 py-2 text-left transition;
+    border-color: var(--border);
+    background: var(--surface);
+    color: var(--text);
+  }
+  .dd-tariff-suggestion-row:hover {
+    border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
+    background: var(--accent-light);
+  }
+  .dd-tariff-suggestion-row-compact {
+    @apply border-none p-1.5;
+    background: transparent;
+  }
+  .dd-tariff-suggestion-row-compact:hover {
+    background: color-mix(in srgb, var(--gold-light) 50%, transparent);
+  }
+
+  .dd-tariff-suggestion-rank {
+    @apply flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold;
+    background: var(--surface2);
+    color: var(--text2);
+  }
+
+  .dd-tariff-suggestion-desc {
+    @apply min-w-0 flex-1 text-xs leading-snug;
+    color: var(--text);
+  }
+
+  .dd-tariff-suggestion-meta {
+    @apply flex shrink-0 flex-col items-end gap-0.5;
+  }
+
+  .dd-tariff-suggestion-code {
+    @apply rounded px-1.5 py-0.5 font-mono text-xs font-bold;
+    background: var(--green-light);
+    color: var(--green);
+  }
+
+  .dd-tariff-suggestion-duty {
+    @apply rounded px-1.5 py-0.5 text-[11px] font-bold;
+    background: color-mix(in srgb, var(--gold) 22%, var(--surface2));
+    color: var(--text);
+    border: 1px solid color-mix(in srgb, var(--gold) 35%, var(--border));
+  }
+
+  .dd-tariff-suggestion-apply {
+    @apply shrink-0 text-[10px] font-bold uppercase tracking-wide;
+    color: var(--accent2);
+  }
+
+  .dd-tariff-quick-apply {
+    @apply rounded-md border px-2 py-1 text-[10px] font-semibold transition;
+    border-color: var(--border);
+    background: var(--surface2);
+    color: var(--text);
+  }
+  .dd-tariff-quick-apply:hover {
+    border-color: var(--accent);
+    background: var(--accent-light);
+  }
+
+  .dd-tariff-more-btn {
+    @apply rounded-md px-2 py-1 text-[10px] font-semibold transition;
+    background: var(--gold-light);
+    color: var(--gold);
+    border: 1px solid color-mix(in srgb, var(--gold) 40%, var(--border));
+  }
+  .dd-tariff-more-btn:hover {
+    filter: brightness(1.05);
+  }
+
+  .dd-tariff-panel {
+    @apply fixed z-[200] overflow-hidden rounded-xl border shadow-2xl;
+    border-color: var(--border);
+    background: var(--surface);
+    max-height: min(360px, calc(100vh - 24px));
+  }
+
+  .dd-tariff-panel-header {
+    @apply flex items-center justify-between gap-2 border-b px-3 py-2.5 text-[11px] font-bold uppercase tracking-wide;
+    border-color: var(--border);
+    background: var(--surface2);
+    color: var(--text);
+  }
+
+  .dd-tariff-panel-close {
+    @apply rounded border-none px-2 py-0.5 text-sm;
+    background: transparent;
+    color: var(--text2);
+  }
+
+  .dd-tariff-panel-list {
+    @apply overflow-y-auto;
+    max-height: min(300px, calc(100vh - 80px));
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .dd-tariff-panel-list .dd-tariff-suggestion-row {
+    @apply rounded-none border-0 border-b;
+    border-color: var(--border);
+  }
+
+  .dd-tariff-panel-footer {
+    @apply border-t px-3 py-2 text-center text-[10px];
+    border-color: var(--border);
+    color: var(--text2);
+    background: var(--surface2);
+  }
+
+  .dd-text-muted {
+    color: var(--text2);
+  }
+
+  .dd-text-accent {
+    color: var(--accent);
+  }
+
+  .dd-text-green {
+    color: var(--green);
+  }
+
+  .dd-text-gold {
+    color: var(--gold);
+  }
+
+  .edit-cell {
+    color: var(--text);
+    border-color: var(--border);
+  }
+  .edit-cell:focus {
+    border-color: var(--accent);
+  }
+
+  .dd-app-header {
+    padding-top: env(safe-area-inset-top, 0);
+  }
+
+  .dd-header-brand {
+    min-width: 0;
+    flex: 0 1 auto;
+  }
+
+  .dd-mobile-nav {
+    @apply fixed inset-x-0 bottom-0 z-50 hidden gap-1 overflow-x-auto border-t px-2 py-2;
+    background: var(--surface);
+    border-color: var(--border);
+    padding-bottom: max(0.5rem, env(safe-area-inset-bottom, 0));
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.12);
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .dd-mobile-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .dd-mobile-tab {
+    @apply flex min-w-[4.75rem] shrink-0 flex-col items-center gap-1 rounded-lg border-none px-2.5 py-2 text-[10px] font-medium no-underline transition;
+    background: transparent;
+    color: var(--text2);
+  }
+
+  .dd-mobile-tab-active {
+    color: var(--accent);
+    background: var(--accent-light);
+    font-weight: 600;
+  }
+
+  @media (max-width: 640px) {
+    .dd-mobile-nav {
+      display: flex;
+    }
+    .dd-tabs-wrap {
+      display: none;
+    }
+    .header-stats {
+      display: none;
+    }
+    .main-wrap {
+      padding-bottom: calc(5.5rem + env(safe-area-inset-bottom, 0)) !important;
+      padding-top: calc(1.25rem + env(safe-area-inset-top, 0)) !important;
+    }
+    .dd-sticky-actions {
+      bottom: calc(5.5rem + env(safe-area-inset-bottom, 0));
+    }
+  }
+
+  @media (min-width: 641px) {
+    .header-user-name {
+      display: inline;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .header-user-name {
+      display: none;
+    }
+    .header-title-sub {
+      display: none;
+    }
+  }
+
+  /* Tooltips */
+  .dd-tooltip-wrap {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    max-width: 100%;
+  }
+
+  .dd-tooltip-wrap.flex {
+    display: flex;
+  }
+
+  .dd-tooltip-wrap:hover .dd-tooltip,
+  .dd-tooltip-wrap:focus-within .dd-tooltip {
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  .dd-tooltip {
+    position: absolute;
+    z-index: 2000;
+    bottom: calc(100% + 10px);
+    left: 50%;
+    transform: translateX(-50%) translateY(6px);
+    width: max-content;
+    max-width: min(300px, 85vw);
+    padding: 0.65rem 0.85rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.8125rem;
+    font-weight: 400;
+    line-height: 1.45;
+    text-align: left;
+    text-transform: none;
+    letter-spacing: normal;
+    white-space: normal;
+    color: var(--text);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-md);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s;
+    pointer-events: none;
+  }
+
+  .dd-tooltip-wide {
+    max-width: min(360px, 90vw);
+  }
+
+  .dd-tooltip-bottom {
+    bottom: auto;
+    top: calc(100% + 10px);
+    transform: translateX(-50%) translateY(-6px);
+  }
+
+  .dd-tooltip-wrap:hover .dd-tooltip-bottom,
+  .dd-tooltip-wrap:focus-within .dd-tooltip-bottom {
+    transform: translateX(-50%) translateY(0);
+  }
+
+  .dd-help-icon {
+    @apply inline-flex h-5 w-5 shrink-0 cursor-help items-center justify-center rounded-full border-none text-xs font-bold transition;
+    background: var(--surface2);
+    color: var(--accent);
+    line-height: 1;
+  }
+  .dd-help-icon:hover,
+  .dd-help-icon:focus {
+    background: var(--accent-light);
+    outline: none;
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent);
+  }
+
+  .dd-th-tip {
+    cursor: help;
+    border-bottom: 1px dotted var(--text3);
+  }
+
+  .dd-card-padded {
+    @apply p-6;
+  }
+
+  .dd-metric-card {
+    @apply rounded-xl border p-4;
+    border-color: var(--border);
+    background: var(--surface);
+  }
+  .dd-metric-card-blue { border-color: color-mix(in srgb, var(--accent) 35%, var(--border)); }
+  .dd-metric-card-green { border-color: color-mix(in srgb, var(--green) 35%, var(--border)); }
+  .dd-metric-card-gold { border-color: color-mix(in srgb, var(--gold) 35%, var(--border)); }
+  .dd-metric-card-red { border-color: color-mix(in srgb, var(--red) 35%, var(--border)); }
+
+  .dd-status-badge {
+    @apply inline-flex rounded-md px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide;
+  }
+  .dd-status-badge-green { background: var(--green-light); color: var(--green); }
+  .dd-status-badge-yellow { background: var(--gold-light); color: var(--gold); }
+  .dd-status-badge-red { background: var(--red-light); color: var(--red); }
+  .dd-status-badge-blue { background: var(--accent-light); color: var(--accent); }
+  .dd-status-badge-default { background: var(--surface2); color: var(--text2); }
+
+  .dd-workflow-progress {
+    @apply rounded-xl border p-4;
+    border-color: var(--border);
+    background: var(--surface);
+  }
+  .dd-workflow-step-dot {
+    @apply block h-3 w-3 rounded-full;
+    background: var(--border);
+  }
+  .dd-workflow-step-active .dd-workflow-step-dot { background: var(--accent2); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent2) 25%, transparent); }
+  .dd-workflow-step-done .dd-workflow-step-dot { background: var(--green); }
+  .dd-workflow-step-failed .dd-workflow-step-dot { background: var(--red); }
+  .dd-workflow-connector { background: var(--border); }
+  .dd-workflow-connector-done { background: var(--green); }
+
+  .dd-modal-overlay {
+    @apply fixed inset-0 z-[100] flex items-center justify-center p-4;
+    background: color-mix(in srgb, #000 45%, transparent);
+  }
+  .dd-modal-panel {
+    @apply w-full rounded-xl border p-5 shadow-xl;
+    border-color: var(--border);
+    background: var(--surface);
+  }
+
+  .dd-notif-success {
+    @apply rounded-lg border px-3 py-2;
+    border-color: color-mix(in srgb, var(--green) 40%, var(--border));
+    background: var(--green-light);
+    color: var(--green);
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+.animate-fade-up {
+  animation: fadeIn 0.2s ease;
+}
+.step-done {
+  color: var(--green);
+}
+.step-active {
+  color: var(--accent);
+  animation: pulse 1s ease infinite;
+}
+.step-pending {
+  color: var(--text3);
+}
+
+/* ===== Classification workspace (clerk-guided) ===== */
+.dd-class-workspace {
+  @apply flex flex-col;
+  background: var(--surface);
+}
+.dd-class-batch {
+  @apply flex flex-wrap items-center justify-between gap-2 border-b px-3 py-2;
+  border-color: var(--border);
+  background: var(--surface2);
+}
+.dd-class-panels {
+  @apply grid gap-0;
+  grid-template-columns: 1fr;
+}
+@media (min-width: 1100px) {
+  .dd-class-panels {
+    grid-template-columns: minmax(200px, 240px) minmax(0, 1fr) minmax(260px, 300px);
+    min-height: 560px;
+  }
+}
+.dd-class-queue-wrap {
+  display: none;
+  border-right: 1px solid var(--border);
+  background: var(--surface);
+}
+@media (min-width: 1100px) {
+  .dd-class-queue-wrap {
+    display: block;
+  }
+}
+.dd-class-queue {
+  @apply flex h-full flex-col;
+  max-height: 70vh;
+}
+.dd-class-queue-head {
+  @apply flex items-center justify-between gap-2 border-b px-3 py-2;
+  border-color: var(--border);
+}
+.dd-class-queue-list {
+  @apply overflow-y-auto;
+  flex: 1;
+}
+.dd-class-queue-item {
+  @apply w-full border-b px-2.5 py-2 text-left transition;
+  border-color: var(--border);
+  background: transparent;
+  color: var(--text);
+}
+.dd-class-queue-item:hover {
+  background: var(--surface2);
+}
+.dd-class-queue-item-active {
+  background: var(--accent-light);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+.dd-class-centre {
+  @apply space-y-3 overflow-y-auto p-3;
+  max-height: 75vh;
+  background: var(--surface);
+}
+.dd-class-card {
+  @apply rounded-xl border p-3;
+  border-color: var(--border);
+  background: var(--surface2);
+}
+.dd-class-grid {
+  @apply grid gap-2;
+  grid-template-columns: 1fr;
+}
+@media (min-width: 700px) {
+  .dd-class-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+.dd-class-field span {
+  @apply mb-0.5 block text-[10px] font-semibold uppercase tracking-wide;
+  color: var(--text2);
+}
+.dd-class-static {
+  @apply rounded-md border px-2 py-1.5 text-[12px];
+  border-color: var(--border);
+  background: var(--surface);
+  color: var(--text);
+  min-height: 2rem;
+}
+.dd-class-warn {
+  @apply rounded-md px-2.5 py-2;
+  background: var(--gold-light);
+  color: var(--gold);
+}
+.dd-conf-grid {
+  @apply grid gap-2;
+  grid-template-columns: 1fr;
+}
+@media (min-width: 700px) {
+  .dd-conf-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+.dd-conf-meter {
+  @apply space-y-1;
+}
+.dd-conf-bar {
+  @apply h-1.5 w-full overflow-hidden rounded-full;
+  background: var(--border);
+}
+.dd-conf-bar-fill {
+  @apply h-full rounded-full transition-all;
+}
+.dd-conf-bar-green { background: var(--green); }
+.dd-conf-bar-amber { background: var(--gold); }
+.dd-conf-bar-red { background: var(--red, #b91c1c); }
+.dd-conf-green { color: var(--green); }
+.dd-conf-amber { color: var(--gold); }
+.dd-conf-red { color: var(--red, #b91c1c); }
+.dd-suggest-card {
+  @apply rounded-lg border p-2.5;
+  border-color: var(--border);
+  background: var(--surface);
+}
+.dd-suggest-card-rejected {
+  opacity: 0.75;
+  border-color: color-mix(in srgb, var(--gold) 50%, var(--border));
+}
+.dd-suggest-rank {
+  @apply flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold;
+  background: var(--surface2);
+  color: var(--text2);
+}
+.dd-class-actions {
+  @apply sticky bottom-0 flex flex-wrap gap-1.5 border-t px-1 py-2;
+  border-color: var(--border);
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  backdrop-filter: blur(6px);
+}
+.dd-class-assistant-desktop {
+  display: none;
+  border-left: 1px solid var(--border);
+  background: var(--surface2);
+  max-height: 75vh;
+  overflow-y: auto;
+}
+@media (min-width: 1100px) {
+  .dd-class-assistant-desktop {
+    display: block;
+  }
+}
+.dd-class-assistant {
+  @apply space-y-0 p-3;
+}
+.dd-class-assistant-head {
+  @apply mb-2 flex items-center justify-between gap-2;
+}
+.dd-class-assistant-block {
+  @apply border-b py-2.5;
+  border-color: var(--border);
+}
+.dd-class-assistant-block:last-child {
+  border-bottom: none;
+}
+.dd-class-assistant-label {
+  @apply mb-1 text-[10px] font-bold uppercase tracking-wide;
+  color: var(--accent);
+}
+.dd-class-mobile-nav {
+  @apply block space-y-1 border-b px-3 py-2;
+  border-color: var(--border);
+}
+@media (min-width: 1100px) {
+  .dd-class-mobile-nav {
+    display: none;
+  }
+}
+.dd-class-sticky-actions {
+  @apply fixed inset-x-0 bottom-0 z-40 flex items-center gap-2 border-t px-3 py-2 lg:hidden;
+  background: var(--surface);
+  border-color: var(--border);
+  padding-bottom: max(0.5rem, env(safe-area-inset-bottom, 0));
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.12);
+}
+@media (min-width: 1100px) {
+  .dd-class-sticky-actions {
+    display: none;
+  }
+}
+.dd-class-drawer {
+  @apply fixed inset-0 z-50 lg:hidden;
+}
+.dd-class-drawer-backdrop {
+  @apply absolute inset-0;
+  background: rgba(0, 0, 0, 0.4);
+}
+.dd-class-drawer-panel {
+  @apply absolute inset-y-0 right-0 w-[min(100%,360px)] overflow-y-auto border-l p-3;
+  background: var(--surface);
+  border-color: var(--border);
+}
+
+/* ===== Product-first resolver ===== */
+.dd-product-first-centre {
+  @apply space-y-3 overflow-y-auto p-3;
+  max-height: 75vh;
+  background: var(--surface);
+}
+.dd-product-first-centre > .dd-class-centre {
+  max-height: none;
+  padding: 0;
+  overflow: visible;
+}
+.dd-resolver-card {
+  @apply rounded-2xl border p-4;
+  border-color: color-mix(in srgb, var(--accent) 38%, var(--border));
+  background:
+    radial-gradient(circle at 92% 0%, color-mix(in srgb, var(--accent) 9%, transparent), transparent 34%),
+    var(--surface2);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
+}
+.dd-resolver-eyebrow {
+  @apply inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.14em];
+  color: var(--accent);
+}
+.dd-resolver-search {
+  @apply flex h-11 items-center gap-2 rounded-full border px-4;
+  border-color: var(--border);
+  background: var(--surface);
+  transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+.dd-resolver-search:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 12%, transparent);
+}
+.dd-resolver-search input {
+  @apply min-w-0 flex-1 border-0 bg-transparent text-sm outline-none;
+  color: var(--text);
+}
+.dd-resolver-search input::placeholder {
+  color: var(--muted);
+}
+.dd-resolver-options {
+  @apply grid gap-2;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+}
+.dd-resolver-option {
+  @apply rounded-xl border p-3 text-left;
+  border-color: var(--border);
+  background: var(--surface);
+  transition: border-color 140ms ease, transform 140ms ease, box-shadow 140ms ease;
+}
+.dd-resolver-option:hover,
+.dd-resolver-option-selected {
+  border-color: var(--accent);
+  box-shadow: 0 5px 16px rgba(0, 0, 0, 0.08);
+  transform: translateY(-1px);
+}
+.dd-resolver-option-selected {
+  background: color-mix(in srgb, var(--accent) 6%, var(--surface));
+}
+.dd-resolver-profile {
+  @apply rounded-xl border p-3;
+  border-color: color-mix(in srgb, var(--green) 35%, var(--border));
+  background: color-mix(in srgb, var(--green) 5%, var(--surface));
+}
+.dd-resolver-profile-grid {
+  @apply grid gap-2;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.dd-resolver-profile-grid > div {
+  @apply min-w-0 rounded-lg px-2.5 py-2;
+  background: var(--surface);
+}
+.dd-resolver-profile-grid span {
+  @apply block text-[9px] font-bold uppercase tracking-wide;
+  color: var(--muted);
+}
+.dd-resolver-profile-grid strong {
+  @apply mt-0.5 block truncate text-[12px];
+  color: var(--text);
+}
+.dd-resolver-locked {
+  border-style: dashed;
+  opacity: 0.82;
+}
+.dd-recommendation-card {
+  border-color: color-mix(in srgb, var(--green) 42%, var(--border));
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--green) 7%, transparent), transparent 46%),
+    var(--surface2);
+  box-shadow: 0 8px 24px rgba(0, 110, 70, 0.08);
+}
+@media (max-width: 699px) {
+  .dd-resolver-profile-grid {
+    grid-template-columns: 1fr;
+  }
+  .dd-product-first-centre {
+    max-height: none;
+  }
+}

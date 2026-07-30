@@ -1,0 +1,375 @@
+{
+  "chapter": "02",
+  "chapter_title": "Chapter 2",
+  "source_pdf": "Explanatory Notes CH02.pdf",
+  "heading_count": 10,
+  "headings": [
+    {
+      "chapter": "02",
+      "heading": "02.01",
+      "title": "02.01 - Meat of bovine animals, fresh or chilled.",
+      "keywords": [
+        "0201",
+        "meat",
+        "bovine",
+        "animals",
+        "fresh",
+        "chilled",
+        "carcasses",
+        "heading",
+        "half",
+        "other",
+        "cuts",
+        "with",
+        "bone",
+        "boneless",
+        "this",
+        "covers",
+        "domestic",
+        "wild"
+      ],
+      "includes": [],
+      "excludes": [],
+      "related_headings": [
+        "01.02"
+      ],
+      "source_pages": [
+        1
+      ],
+      "file_path": "knowledge/processed/explanatory-notes/chapter-02/heading-0201.md"
+    },
+    {
+      "chapter": "02",
+      "heading": "02.02",
+      "title": "02.02 - Meat of bovine animals, frozen.",
+      "keywords": [
+        "0202",
+        "meat",
+        "bovine",
+        "animals",
+        "frozen",
+        "carcasses",
+        "heading",
+        "half",
+        "other",
+        "cuts",
+        "with",
+        "bone",
+        "boneless",
+        "this",
+        "covers",
+        "domestic",
+        "wild"
+      ],
+      "includes": [],
+      "excludes": [],
+      "related_headings": [
+        "01.02"
+      ],
+      "source_pages": [
+        5
+      ],
+      "file_path": "knowledge/processed/explanatory-notes/chapter-02/heading-0202.md"
+    },
+    {
+      "chapter": "02",
+      "heading": "02.03",
+      "title": "02.03 - Meat of swine, fresh, chilled or frozen.",
+      "keywords": [
+        "0203",
+        "carcasses",
+        "with",
+        "meat",
+        "fresh",
+        "chilled",
+        "frozen",
+        "other",
+        "swine",
+        "half",
+        "hams",
+        "shoulders",
+        "cuts",
+        "thereof",
+        "bone",
+        "heading",
+        "wild",
+        "this",
+        "covers",
+        "pigs"
+      ],
+      "includes": [],
+      "excludes": [],
+      "related_headings": [],
+      "source_pages": [
+        6
+      ],
+      "file_path": "knowledge/processed/explanatory-notes/chapter-02/heading-0203.md"
+    },
+    {
+      "chapter": "02",
+      "heading": "02.04",
+      "title": "02.04 - Meat of sheep or goats, fresh, chilled or frozen (+).",
+      "keywords": [
+        "0204",
+        "carcasses",
+        "meat",
+        "sheep",
+        "fresh",
+        "chilled",
+        "frozen",
+        "half",
+        "other",
+        "goats",
+        "lamb",
+        "cuts",
+        "with",
+        "bone",
+        "boneless",
+        "subheadings",
+        "this",
+        "heading",
+        "covers",
+        "rams"
+      ],
+      "includes": [],
+      "excludes": [],
+      "related_headings": [],
+      "source_pages": [
+        7
+      ],
+      "file_path": "knowledge/processed/explanatory-notes/chapter-02/heading-0204.md"
+    },
+    {
+      "chapter": "02",
+      "heading": "02.05",
+      "title": "02.05 - Meat of horses, asses, mules or hinnies, fresh, chilled or frozen.",
+      "keywords": [
+        "meat",
+        "fresh",
+        "chilled",
+        "frozen",
+        "heading",
+        "horses",
+        "asses",
+        "mules",
+        "hinnies",
+        "this",
+        "covers",
+        "those",
+        "animals",
+        "which",
+        "when",
+        "live",
+        "classified"
+      ],
+      "includes": [],
+      "excludes": [],
+      "related_headings": [
+        "01.01"
+      ],
+      "source_pages": [
+        8
+      ],
+      "file_path": "knowledge/processed/explanatory-notes/chapter-02/heading-0205.md"
+    },
+    {
+      "chapter": "02",
+      "heading": "02.06",
+      "title": "02.06 - Edible offal of bovine animals, swine, sheep, goats, horses, asses, mules or hinnies, fresh, chilled or frozen.",
+      "keywords": [
+        "0206",
+        "fresh",
+        "chilled",
+        "frozen",
+        "other",
+        "edible",
+        "offal",
+        "bovine",
+        "animals",
+        "swine",
+        "livers",
+        "glands",
+        "tongues",
+        "this",
+        "skirts",
+        "sheep",
+        "goats",
+        "horses",
+        "asses",
+        "mules"
+      ],
+      "includes": [],
+      "excludes": [],
+      "related_headings": [],
+      "source_pages": [
+        9
+      ],
+      "file_path": "knowledge/processed/explanatory-notes/chapter-02/heading-0206.md"
+    },
+    {
+      "chapter": "02",
+      "heading": "02.07",
+      "title": "02.07 - Meat and edible offal, of the poultry of heading 01.05, fresh, chilled or frozen.",
+      "keywords": [
+        "0207",
+        "fresh",
+        "chilled",
+        "frozen",
+        "pieces",
+        "offal",
+        "livers",
+        "other",
+        "cuts",
+        "poultry",
+        "heading",
+        "fatty",
+        "meat",
+        "edible",
+        "fowls",
+        "ducks",
+        "geese",
+        "which",
+        "from",
+        "colour"
+      ],
+      "includes": [],
+      "excludes": [],
+      "related_headings": [
+        "01.05"
+      ],
+      "source_pages": [
+        2
+      ],
+      "file_path": "knowledge/processed/explanatory-notes/chapter-02/heading-0207.md"
+    },
+    {
+      "chapter": "02",
+      "heading": "02.08",
+      "title": "02.08 - Other meat and edible meat offal, fresh, chilled or frozen.",
+      "keywords": [
+        "0208",
+        "meat",
+        "other",
+        "mammals",
+        "offal",
+        "order",
+        "heading",
+        "edible",
+        "fresh",
+        "chilled",
+        "frozen",
+        "rabbits",
+        "hares",
+        "primates",
+        "whales",
+        "dolphins",
+        "porpoises",
+        "cetacea",
+        "manatees",
+        "dugongs"
+      ],
+      "includes": [],
+      "excludes": [],
+      "related_headings": [
+        "01.06"
+      ],
+      "source_pages": [
+        1
+      ],
+      "file_path": "knowledge/processed/explanatory-notes/chapter-02/heading-0208.md"
+    },
+    {
+      "chapter": "02",
+      "heading": "02.09",
+      "title": "02.09 - Pig fat, free of lean meat, and poultry fat, not rendered or otherwise extracted, fresh, chilled, frozen, salted, in brine, dried or smoked.",
+      "keywords": [
+        "heading",
+        "meat",
+        "rendered",
+        "otherwise",
+        "extracted",
+        "excluded",
+        "free",
+        "lean",
+        "poultry",
+        "0209",
+        "this",
+        "such",
+        "falls",
+        "with",
+        "when",
+        "fresh",
+        "chilled",
+        "frozen",
+        "salted",
+        "brine"
+      ],
+      "includes": [],
+      "excludes": [],
+      "related_headings": [
+        "02.03",
+        "15.01"
+      ],
+      "source_pages": [
+        1
+      ],
+      "file_path": "knowledge/processed/explanatory-notes/chapter-02/heading-0209.md"
+    },
+    {
+      "chapter": "02",
+      "heading": "02.10",
+      "title": "02.10 - Meat and edible meat offal, salted, in brine, dried or smoked; edible flours and meals of meat or meat offal.",
+      "keywords": [
+        "meat",
+        "heading",
+        "0210",
+        "offal",
+        "edible",
+        "other",
+        "flours",
+        "meals",
+        "with",
+        "this",
+        "been",
+        "dried",
+        "including",
+        "mammals",
+        "salted",
+        "smoked",
+        "cuts",
+        "thereof",
+        "streaky",
+        "animals"
+      ],
+      "includes": [],
+      "excludes": [],
+      "related_headings": [
+        "02.09",
+        "16.01",
+        "23.01",
+        "02.06"
+      ],
+      "source_pages": [
+        1
+      ],
+      "file_path": "knowledge/processed/explanatory-notes/chapter-02/heading-0210.md"
+    }
+  ],
+  "files": {
+    "chapter_notes": "knowledge/processed/explanatory-notes/chapter-02/chapter-notes.md",
+    "general": "knowledge/processed/explanatory-notes/chapter-02/general.md",
+    "headings": [
+      "knowledge/processed/explanatory-notes/chapter-02/heading-0201.md",
+      "knowledge/processed/explanatory-notes/chapter-02/heading-0202.md",
+      "knowledge/processed/explanatory-notes/chapter-02/heading-0203.md",
+      "knowledge/processed/explanatory-notes/chapter-02/heading-0204.md",
+      "knowledge/processed/explanatory-notes/chapter-02/heading-0205.md",
+      "knowledge/processed/explanatory-notes/chapter-02/heading-0206.md",
+      "knowledge/processed/explanatory-notes/chapter-02/heading-0207.md",
+      "knowledge/processed/explanatory-notes/chapter-02/heading-0208.md",
+      "knowledge/processed/explanatory-notes/chapter-02/heading-0209.md",
+      "knowledge/processed/explanatory-notes/chapter-02/heading-0210.md"
+    ]
+  },
+  "generated_at": "2026-07-09T03:21:25.695Z"
+}

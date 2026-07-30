@@ -1,0 +1,384 @@
+[
+  {
+    "liquid_type": "pure_substance",
+    "display_name": "Pure Substance",
+    "typical_chapters": ["28", "29"],
+    "required_fields": ["liquidType", "primaryFunction", "purityPercent"],
+    "composition_thresholds": [
+      { "field": "purityPercent", "min": 95, "note": "High purity may indicate Chapter 28/29" }
+    ],
+    "active_ingredient_mappings": [],
+    "solvent_base_mappings": [],
+    "chemical_synonyms": [
+      { "synonym": "ipa", "canonical": "isopropyl alcohol" },
+      { "synonym": "isopropanol", "canonical": "isopropyl alcohol" }
+    ],
+    "cas_mappings": [
+      { "name": "isopropyl alcohol", "cas": "67-63-0" },
+      { "name": "ethanol", "cas": "64-17-5" },
+      { "name": "sodium hypochlorite", "cas": "7681-52-9" }
+    ],
+    "classification_hints": [{ "when": "purity>=95", "chapter": "29", "note": "Organic chemicals" }]
+  },
+  {
+    "liquid_type": "aqueous_solution",
+    "display_name": "Aqueous Solution",
+    "typical_chapters": ["28", "29", "38"],
+    "required_fields": ["liquidType", "solvent", "composition", "intendedUse"],
+    "composition_thresholds": [
+      { "field": "waterContentPercent", "min": 50, "note": "Water-based solution" }
+    ],
+    "active_ingredient_mappings": [
+      { "pattern": "sodium hypochlorite", "ingredient": "sodium hypochlorite", "role": "active" }
+    ],
+    "solvent_base_mappings": [{ "pattern": "water", "value": "water", "kind": "solvent" }],
+    "chemical_synonyms": [{ "synonym": "bleach", "canonical": "sodium hypochlorite" }],
+    "cas_mappings": [],
+    "classification_hints": []
+  },
+  {
+    "liquid_type": "alcoholic_solution",
+    "display_name": "Alcoholic Solution",
+    "typical_chapters": ["22", "29", "33", "38"],
+    "required_fields": ["liquidType", "alcoholContentPercent", "intendedUse", "composition"],
+    "composition_thresholds": [
+      { "field": "alcoholContentPercent", "min": 70, "headingHint": "disinfectant", "note": "High alcohol disinfectant threshold" }
+    ],
+    "active_ingredient_mappings": [
+      { "pattern": "isopropyl alcohol|isopropanol|ipa", "ingredient": "isopropyl alcohol", "role": "active" },
+      { "pattern": "ethanol|ethyl alcohol", "ingredient": "ethanol", "role": "active" }
+    ],
+    "solvent_base_mappings": [
+      { "pattern": "water", "value": "water", "kind": "solvent" },
+      { "pattern": "alcohol|ethanol|isopropanol", "value": "alcohol", "kind": "base" }
+    ],
+    "chemical_synonyms": [],
+    "cas_mappings": [],
+    "classification_hints": [
+      { "when": "use=beverage", "chapter": "22" },
+      { "when": "use=disinfectant", "chapter": "38" },
+      { "when": "use=cosmetic", "chapter": "33" }
+    ]
+  },
+  {
+    "liquid_type": "cleaning_preparation",
+    "display_name": "Cleaning Preparation",
+    "typical_chapters": ["34", "38"],
+    "required_fields": ["liquidType", "intendedUse", "composition", "primaryFunction"],
+    "composition_thresholds": [],
+    "active_ingredient_mappings": [
+      { "pattern": "surfactant|surface.?active", "ingredient": "surface-active agent", "role": "active" },
+      { "pattern": "sodium hypochlorite|bleach", "ingredient": "sodium hypochlorite", "role": "active" }
+    ],
+    "solvent_base_mappings": [{ "pattern": "water", "value": "water", "kind": "solvent" }],
+    "chemical_synonyms": [],
+    "cas_mappings": [],
+    "classification_hints": [
+      { "when": "soap-based", "chapter": "34" },
+      { "when": "disinfectant", "chapter": "38" }
+    ]
+  },
+  {
+    "liquid_type": "disinfectant",
+    "display_name": "Disinfectant",
+    "typical_chapters": ["38"],
+    "required_fields": ["liquidType", "activeIngredients", "composition", "concentration"],
+    "composition_thresholds": [],
+    "active_ingredient_mappings": [],
+    "solvent_base_mappings": [],
+    "chemical_synonyms": [],
+    "cas_mappings": [],
+    "classification_hints": [{ "when": "disinfectant", "chapter": "38" }]
+  },
+  {
+    "liquid_type": "fixed_vegetable_oil",
+    "display_name": "Fixed Vegetable Oil",
+    "typical_chapters": ["15"],
+    "required_fields": ["liquidType", "baseSubstance", "foodGrade", "intendedUse"],
+    "composition_thresholds": [],
+    "active_ingredient_mappings": [],
+    "solvent_base_mappings": [{ "pattern": "coconut|palm|soybean|olive|sunflower", "value": "vegetable oil", "kind": "base" }],
+    "chemical_synonyms": [{ "synonym": "mct oil", "canonical": "medium-chain triglycerides" }],
+    "cas_mappings": [],
+    "classification_hints": [{ "when": "edible oil", "chapter": "15" }]
+  },
+  {
+    "liquid_type": "essential_oil",
+    "display_name": "Essential Oil",
+    "typical_chapters": ["33"],
+    "required_fields": ["liquidType", "baseSubstance", "intendedUse"],
+    "composition_thresholds": [],
+    "active_ingredient_mappings": [],
+    "solvent_base_mappings": [],
+    "chemical_synonyms": [],
+    "cas_mappings": [],
+    "classification_hints": [{ "when": "essential oil", "chapter": "33" }]
+  },
+  {
+    "liquid_type": "lubricant",
+    "display_name": "Lubricant",
+    "typical_chapters": ["27", "34"],
+    "required_fields": ["liquidType", "intendedUse", "baseSubstance"],
+    "composition_thresholds": [],
+    "active_ingredient_mappings": [],
+    "solvent_base_mappings": [{ "pattern": "petroleum|mineral oil", "value": "mineral oil", "kind": "base" }],
+    "chemical_synonyms": [],
+    "cas_mappings": [],
+    "classification_hints": []
+  },
+  {
+    "liquid_type": "cosmetic_preparation",
+    "display_name": "Cosmetic Preparation",
+    "typical_chapters": ["33"],
+    "required_fields": ["liquidType", "intendedUse", "composition"],
+    "composition_thresholds": [],
+    "active_ingredient_mappings": [],
+    "solvent_base_mappings": [],
+    "chemical_synonyms": [],
+    "cas_mappings": [],
+    "classification_hints": [{ "when": "cosmetic", "chapter": "33" }]
+  },
+  {
+    "liquid_type": "pharmaceutical_preparation",
+    "display_name": "Pharmaceutical Preparation",
+    "typical_chapters": ["30"],
+    "required_fields": ["liquidType", "activeIngredients", "composition", "intendedUse"],
+    "composition_thresholds": [],
+    "active_ingredient_mappings": [],
+    "solvent_base_mappings": [],
+    "chemical_synonyms": [],
+    "cas_mappings": [],
+    "classification_hints": [{ "when": "medicinal", "chapter": "30" }]
+  },
+  {
+    "liquid_type": "syrup",
+    "display_name": "Syrup",
+    "typical_chapters": ["17", "21", "30"],
+    "required_fields": ["liquidType", "intendedUse", "sugarContentPercent"],
+    "composition_thresholds": [],
+    "active_ingredient_mappings": [],
+    "solvent_base_mappings": [],
+    "chemical_synonyms": [],
+    "cas_mappings": [],
+    "classification_hints": [
+      { "when": "use=food", "chapter": "21" },
+      { "when": "use=medicinal", "chapter": "30" }
+    ]
+  },
+  {
+    "liquid_type": "beverage",
+    "display_name": "Beverage",
+    "typical_chapters": ["22"],
+    "required_fields": ["liquidType", "alcoholContentPercent", "intendedUse"],
+    "composition_thresholds": [],
+    "active_ingredient_mappings": [],
+    "solvent_base_mappings": [],
+    "chemical_synonyms": [],
+    "cas_mappings": [],
+    "classification_hints": [{ "when": "beverage", "chapter": "22" }]
+  },
+  {
+    "liquid_type": "food_preparation",
+    "display_name": "Food Preparation",
+    "typical_chapters": ["21"],
+    "required_fields": ["liquidType", "intendedUse", "foodGrade"],
+    "composition_thresholds": [],
+    "active_ingredient_mappings": [],
+    "solvent_base_mappings": [],
+    "chemical_synonyms": [],
+    "cas_mappings": [],
+    "classification_hints": []
+  },
+  {
+    "liquid_type": "sauce",
+    "display_name": "Sauce",
+    "typical_chapters": ["21"],
+    "required_fields": ["liquidType", "intendedUse", "composition"],
+    "composition_thresholds": [],
+    "active_ingredient_mappings": [],
+    "solvent_base_mappings": [],
+    "chemical_synonyms": [],
+    "cas_mappings": [],
+    "classification_hints": []
+  },
+  {
+    "liquid_type": "paint",
+    "display_name": "Paint",
+    "typical_chapters": ["32"],
+    "required_fields": ["liquidType", "intendedUse", "baseSubstance"],
+    "composition_thresholds": [],
+    "active_ingredient_mappings": [],
+    "solvent_base_mappings": [],
+    "chemical_synonyms": [],
+    "cas_mappings": [],
+    "classification_hints": []
+  },
+  {
+    "liquid_type": "ink",
+    "display_name": "Ink",
+    "typical_chapters": ["32"],
+    "required_fields": ["liquidType", "intendedUse"],
+    "composition_thresholds": [],
+    "active_ingredient_mappings": [],
+    "solvent_base_mappings": [],
+    "chemical_synonyms": [],
+    "cas_mappings": [],
+    "classification_hints": []
+  },
+  {
+    "liquid_type": "adhesive",
+    "display_name": "Adhesive",
+    "typical_chapters": ["35"],
+    "required_fields": ["liquidType", "intendedUse"],
+    "composition_thresholds": [],
+    "active_ingredient_mappings": [],
+    "solvent_base_mappings": [],
+    "chemical_synonyms": [],
+    "cas_mappings": [],
+    "classification_hints": []
+  },
+  {
+    "liquid_type": "fuel",
+    "display_name": "Fuel",
+    "typical_chapters": ["27"],
+    "required_fields": ["liquidType", "intendedUse", "baseSubstance"],
+    "composition_thresholds": [],
+    "active_ingredient_mappings": [],
+    "solvent_base_mappings": [],
+    "chemical_synonyms": [],
+    "cas_mappings": [],
+    "classification_hints": []
+  },
+  {
+    "liquid_type": "pesticide",
+    "display_name": "Pesticide",
+    "typical_chapters": ["38"],
+    "required_fields": ["liquidType", "activeIngredients", "composition", "concentration"],
+    "composition_thresholds": [],
+    "active_ingredient_mappings": [],
+    "solvent_base_mappings": [],
+    "chemical_synonyms": [],
+    "cas_mappings": [],
+    "classification_hints": []
+  },
+  {
+    "liquid_type": "industrial_chemical_mixture",
+    "display_name": "Industrial Chemical Mixture",
+    "typical_chapters": ["38"],
+    "required_fields": ["liquidType", "composition", "intendedUse", "hazardous"],
+    "composition_thresholds": [],
+    "active_ingredient_mappings": [],
+    "solvent_base_mappings": [],
+    "chemical_synonyms": [],
+    "cas_mappings": [],
+    "classification_hints": []
+  },
+  {
+    "liquid_type": "emulsion",
+    "display_name": "Emulsion",
+    "typical_chapters": ["34", "38"],
+    "required_fields": ["liquidType", "composition", "intendedUse"],
+    "composition_thresholds": [],
+    "active_ingredient_mappings": [],
+    "solvent_base_mappings": [],
+    "chemical_synonyms": [],
+    "cas_mappings": [],
+    "classification_hints": []
+  },
+  {
+    "liquid_type": "suspension",
+    "display_name": "Suspension",
+    "typical_chapters": ["30", "38"],
+    "required_fields": ["liquidType", "composition", "intendedUse"],
+    "composition_thresholds": [],
+    "active_ingredient_mappings": [],
+    "solvent_base_mappings": [],
+    "chemical_synonyms": [],
+    "cas_mappings": [],
+    "classification_hints": []
+  },
+  {
+    "liquid_type": "concentrate",
+    "display_name": "Concentrate",
+    "typical_chapters": ["21", "33", "38"],
+    "required_fields": ["liquidType", "concentrated", "intendedUse", "composition"],
+    "composition_thresholds": [],
+    "active_ingredient_mappings": [],
+    "solvent_base_mappings": [],
+    "chemical_synonyms": [],
+    "cas_mappings": [],
+    "classification_hints": []
+  },
+  {
+    "liquid_type": "extract",
+    "display_name": "Extract",
+    "typical_chapters": ["13", "33"],
+    "required_fields": ["liquidType", "baseSubstance", "intendedUse"],
+    "composition_thresholds": [],
+    "active_ingredient_mappings": [],
+    "solvent_base_mappings": [],
+    "chemical_synonyms": [],
+    "cas_mappings": [],
+    "classification_hints": []
+  },
+  {
+    "liquid_type": "mineral_oil_preparation",
+    "display_name": "Mineral Oil Preparation",
+    "typical_chapters": ["27", "34"],
+    "required_fields": ["liquidType", "intendedUse", "baseSubstance"],
+    "composition_thresholds": [],
+    "active_ingredient_mappings": [],
+    "solvent_base_mappings": [],
+    "chemical_synonyms": [],
+    "cas_mappings": [],
+    "classification_hints": []
+  },
+  {
+    "liquid_type": "oil_based_solution",
+    "display_name": "Oil-Based Solution",
+    "typical_chapters": ["15", "27", "33", "34"],
+    "required_fields": ["liquidType", "solvent", "intendedUse"],
+    "composition_thresholds": [],
+    "active_ingredient_mappings": [],
+    "solvent_base_mappings": [],
+    "chemical_synonyms": [],
+    "cas_mappings": [],
+    "classification_hints": []
+  },
+  {
+    "liquid_type": "fertilizer_preparation",
+    "display_name": "Fertilizer Preparation",
+    "typical_chapters": ["31"],
+    "required_fields": ["liquidType", "composition", "intendedUse"],
+    "composition_thresholds": [],
+    "active_ingredient_mappings": [],
+    "solvent_base_mappings": [],
+    "chemical_synonyms": [],
+    "cas_mappings": [],
+    "classification_hints": []
+  },
+  {
+    "liquid_type": "chemical_reagent",
+    "display_name": "Chemical Reagent",
+    "typical_chapters": ["28", "29", "38"],
+    "required_fields": ["liquidType", "composition", "purityPercent", "intendedUse"],
+    "composition_thresholds": [],
+    "active_ingredient_mappings": [],
+    "solvent_base_mappings": [],
+    "chemical_synonyms": [],
+    "cas_mappings": [],
+    "classification_hints": []
+  },
+  {
+    "liquid_type": "dispersion",
+    "display_name": "Dispersion",
+    "typical_chapters": ["32", "38"],
+    "required_fields": ["liquidType", "composition", "intendedUse"],
+    "composition_thresholds": [],
+    "active_ingredient_mappings": [],
+    "solvent_base_mappings": [],
+    "chemical_synonyms": [],
+    "cas_mappings": [],
+    "classification_hints": []
+  }
+]

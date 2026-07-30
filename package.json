@@ -1,0 +1,38 @@
+{
+  "name": "pas-trinidad",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace @pas/web",
+    "dev:worker": "npm run dev --workspace @pas/worker",
+    "build": "npm run build --workspaces --if-present",
+    "build:web": "npm run build --workspace @pas/web",
+    "generate-icons": "node scripts/generate-pwa-icons.mjs",
+    "test": "npm run test --workspaces --if-present",
+    "extract-tariff": "node scripts/extract-tariff.mjs",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "deploy:worker": "wrangler deploy",
+    "db:migrate": "wrangler d1 migrations apply pas-trinidad --local",
+    "db:migrate:remote": "wrangler d1 migrations apply pas-trinidad --remote",
+    "seed:admin": "node scripts/seed-admin.mjs",
+    "seed:product-intelligence": "node scripts/seed-product-intelligence.mjs",
+    "seed:attribute-library": "node scripts/seed-attribute-library.mjs",
+    "seed:liquid-composition": "node scripts/seed-liquid-composition.mjs",
+    "seed:abbreviations": "node scripts/seed-abbreviations.mjs",
+    "smoke-test": "node scripts/smoke-test.mjs"
+  },
+  "devDependencies": {
+    "pdf-parse": "^1.1.1",
+    "typescript": "^5.7.2",
+    "wrangler": "^3.99.0"
+  },
+  "allowScripts": {
+    "sharp@0.33.5": true
+  },
+  "dependencies": {
+    "pdf-lib": "^1.17.1"
+  }
+}

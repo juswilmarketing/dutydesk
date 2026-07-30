@@ -1,0 +1,15 @@
+[
+  { "brand": "Nike", "industry_hints": ["footwear", "sports"], "typical_chapters": ["64", "61", "62"], "confidence_boost": 0.08 },
+  { "brand": "Adidas", "industry_hints": ["footwear", "sports"], "typical_chapters": ["64", "61"], "confidence_boost": 0.08 },
+  { "brand": "Samsung", "industry_hints": ["electronics", "electrical"], "typical_chapters": ["85", "84"], "confidence_boost": 0.07 },
+  { "brand": "Siemens", "industry_hints": ["electrical", "industrial"], "typical_chapters": ["85", "84"], "confidence_boost": 0.07 },
+  { "brand": "Bosch", "industry_hints": ["automotive", "tools", "machinery"], "typical_chapters": ["84", "85", "87"], "confidence_boost": 0.06 },
+  { "brand": "Philips", "industry_hints": ["lighting", "electronics", "medical"], "typical_chapters": ["85", "94", "90"], "confidence_boost": 0.06 },
+  { "brand": "Nestle", "industry_hints": ["food", "beverages"], "typical_chapters": ["04", "18", "19", "21"], "confidence_boost": 0.06 },
+  { "brand": "3M", "industry_hints": ["chemicals", "industrial", "medical", "hardware"], "typical_chapters": ["34", "39", "90", "82"], "confidence_boost": 0.08 },
+  { "brand": "Caterpillar", "industry_hints": ["machinery", "construction"], "typical_chapters": ["84", "87"], "confidence_boost": 0.07 },
+  { "brand": "Toyota", "industry_hints": ["automotive"], "typical_chapters": ["87"], "confidence_boost": 0.08 },
+  { "brand": "HID", "industry_hints": ["printing", "electronics"], "typical_chapters": ["84", "96"], "confidence_boost": 0.1 },
+  { "brand": "Fargo", "industry_hints": ["printing"], "typical_chapters": ["84", "96"], "confidence_boost": 0.1 },
+  { "brand": "Zebra", "industry_hints": ["printing", "electronics"], "typical_chapters": ["84", "85"], "confidence_boost": 0.08 }
+]

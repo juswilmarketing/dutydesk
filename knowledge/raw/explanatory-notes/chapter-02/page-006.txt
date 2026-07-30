@@ -1,0 +1,14 @@
+02.03
+
+02.03 - Meat of swine, fresh, chilled or frozen.
+
+- Fresh or chilled :
+0203.11 - - Carcasses and half-carcasses
+0203.12 - - Hams, shoulders and cuts thereof, with bone in
+0203.19 - - Other
+- Frozen :
+0203.21 - - Carcasses and half-carcasses
+0203.22 - - Hams, shoulders and cuts thereof, with bone in
+0203.29 - - Other
+
+This heading covers fresh, chilled or frozen meat of pigs and other swine, whether domestic or wild (e.g., wild boars). The heading includes streaky pork and similar meats interlarded with a high proportion of fat, and fat with an adhering layer of meat.

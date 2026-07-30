@@ -1,0 +1,42 @@
+# Heading 04.10 — 04.10 - Edible products of animal origin, not elsewhere specified or included.
+
+## Heading code
+04.10
+
+## Title
+04.10 - Edible products of animal origin, not elsewhere specified or included.
+
+## Explanatory note
+This heading covers products of animal origin suitable for human consumption, not specified or included elsewhere in the Nomenclature.
+
+It includes :
+
+(1) Turtles' eggs. These are eggs laid by river or marine turtles; they may be fresh, dried or otherwise preserved.
+
+Turtle-egg oil is excluded (heading 15.06).
+
+(2) Salanganes' nests (" birds' nests "). These consist of a substance secreted by the bird which solidifies rapidly on exposure to air.
+
+The nests may be presented untreated, or they may have been cleaned to remove feathers, down, dust and other impurities in order to render them suitable for consumption. They are generally in the form of whitish strips or threads.
+
+Salanganes' nests have a high protein content and are used almost exclusively to make soups or other food preparations.
+
+The heading excludes animal blood, edible or not, liquid or dried (heading 05.11 or 30.02).
+
+
+
+
+## Related headings
+
+- 15.06
+- 05.11
+
+
+
+## Keywords
+heading, nests, animal, they, edible, products, origin, elsewhere, specified, included, suitable, consumption, turtles, eggs, these, dried, salanganes, have, other, this
+
+## Source
+- PDF: Explanatory Notes CH04.pdf
+- Page(s): 1
+- Chapter: 04

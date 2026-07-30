@@ -1,0 +1,83 @@
+# Heading 01.02 — 01.02 - Live bovine animals (+).
+
+## Heading code
+01.02
+
+## Title
+01.02 - Live bovine animals (+).
+
+## Explanatory note
+- Cattle :
+
+0102.21 - - Pure-bred breeding animals
+
+0102.29 - - Other
+
+- Buffalo :
+
+0102.31 - - Pure-bred breeding animals
+
+0102.39 - - Other
+
+0102.90 - Other
+
+This heading covers all animals of the sub-family Bovinae, whether or not domestic and irrespective of their intended use (e.g., stock, raising, fattening, breeding, slaughter). These include, inter alia :
+
+(1) Cattle :
+
+This category covers bovine animals of the genus Bos, which is divided into four sub-genera : Bos, Bibos, Novibos and Poephagus. These include, inter alia :
+
+(A) The common ox (Bos taurus), the Zebu or humped ox (Bos indicus) and the Watussi ox.
+
+(B) The Asiatic oxen of the sub-genus Bibos, such as the gaur (Bos gaurus), the gayal (Bos frontalis) and the banteng (Bos sondaicus or Bos javanicus).
+
+(C) Animals of the sub-genus Poephagus, such as the Tibetan yak (Bos grunniens).
+
+(2) Buffalo :
+
+This category covers animals of the genera Bubalus, Syncerus and Bison. These include, inter alia :
+
+(A) Animals of the genus Bubalus, including the Indian or water buffalo (Bubalus bubalus), the Asiatic buffalo or arni (Bubalus arni) and the Celebese anoa or pigmy buffalo (Bubalus depressicornis or Anoa depressicornis).
+
+(B) African buffaloes of the genus Syncerus, such as the dwarf buffalo (Syncerus nanus) and the large Caffrarian buffalo (Syncerus caffer).
+
+(C) Animals of the genus Bison, i.e., the American bison (Bison bison) or "buffalo" and the European bison (Bison bonasus).
+
+(D) The Beeffalo (a cross between a bison and a domestic beef animal).
+
+(3) Other, including the four-horned antelope (Tetracerus quadricornis) and the spiral-horned antelopes of the genera Taurotragus and Tragelaphus.
+
+o
+o o
+
+Subheading Explanatory Note.
+
+Subheading 0102.21 and 0102.31
+
+For the purposes of subheadings 0102.21 and 0102.31, the expression "pure-bred breeding animals" covers only those breeding animals which are regarded as "pure-bred" by the competent national authorities.
+
+
+
+## Subheading notes
+
+### 0102.21 — - Pure-bred breeding animals
+
+### 0102.29 — - Other
+
+### 0102.31 — - Pure-bred breeding animals
+
+### 0102.39 — - Other
+
+### 0102.90 — Other
+
+### 0102.21 — and 0102.31
+
+
+
+## Keywords
+animals, 0102, buffalo, bison, genus, bubalus, breeding, pure, bred, other, covers, syncerus, this, these, include, inter, alia, genera, such, bovine
+
+## Source
+- PDF: Explanatory Notes CH01.pdf
+- Page(s): 4
+- Chapter: 01

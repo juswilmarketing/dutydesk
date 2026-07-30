@@ -1,0 +1,16 @@
+[
+  { "abbreviation": "QTR", "meaning": "quarter sheet / supplier variant", "scope": "global", "confidence": 0.7, "verified": false },
+  { "abbreviation": "PK", "meaning": "pack", "scope": "global", "confidence": 0.9, "verified": true },
+  { "abbreviation": "EA", "meaning": "each", "scope": "global", "confidence": 0.95, "verified": true },
+  { "abbreviation": "ASSY", "meaning": "assembly", "scope": "global", "confidence": 0.9, "verified": true },
+  { "abbreviation": "SS", "meaning": "stainless steel", "scope": "global", "confidence": 0.85, "verified": true },
+  { "abbreviation": "GALV", "meaning": "galvanized", "scope": "global", "confidence": 0.9, "verified": true },
+  { "abbreviation": "BLK", "meaning": "black", "scope": "global", "confidence": 0.9, "verified": true },
+  { "abbreviation": "CLR", "meaning": "clear", "scope": "global", "confidence": 0.9, "verified": true },
+  { "abbreviation": "WHT", "meaning": "white", "scope": "global", "confidence": 0.9, "verified": true },
+  { "abbreviation": "LH", "meaning": "left hand", "scope": "global", "confidence": 0.9, "verified": true },
+  { "abbreviation": "RH", "meaning": "right hand", "scope": "global", "confidence": 0.9, "verified": true },
+  { "abbreviation": "OD", "meaning": "outside diameter", "scope": "global", "confidence": 0.9, "verified": true },
+  { "abbreviation": "ID", "meaning": "inside diameter", "scope": "global", "confidence": 0.85, "verified": true },
+  { "abbreviation": "SCH", "meaning": "schedule", "scope": "industry", "industry_code": "construction", "confidence": 0.9, "verified": true }
+]

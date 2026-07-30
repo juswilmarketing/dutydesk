@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>DutyDesk User Guide</title>
+  <style>
+    @page { margin: 18mm 16mm; size: A4; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: "Segoe UI", Arial, sans-serif;
+      font-size: 11pt;
+      line-height: 1.55;
+      color: #1a1a1a;
+      max-width: 210mm;
+      margin: 0 auto;
+      padding: 12mm 0;
+    }
+    .cover {
+      text-align: center;
+      padding: 40mm 10mm 30mm;
+      page-break-after: always;
+      border-bottom: 4px solid #8B0000;
+    }
+    .cover-flag { font-size: 48pt; margin-bottom: 12mm; }
+    .cover h1 {
+      font-size: 32pt;
+      color: #8B0000;
+      letter-spacing: -0.5px;
+      margin-bottom: 6mm;
+    }
+    .cover .subtitle { font-size: 14pt; color: #555; margin-bottom: 4mm; }
+    .cover .meta { font-size: 10pt; color: #888; margin-top: 20mm; }
+    h2 {
+      font-size: 16pt;
+      color: #8B0000;
+      margin: 10mm 0 4mm;
+      padding-bottom: 2mm;
+      border-bottom: 2px solid #e8d8d0;
+      page-break-after: avoid;
+    }
+    h3 {
+      font-size: 12pt;
+      color: #333;
+      margin: 6mm 0 2mm;
+      page-break-after: avoid;
+    }
+    p { margin-bottom: 3mm; }
+    ul, ol { margin: 2mm 0 4mm 6mm; }
+    li { margin-bottom: 1.5mm; }
+    .toc { page-break-after: always; }
+    .toc ol { list-style: none; counter-reset: toc; margin-left: 0; }
+    .toc li {
+      counter-increment: toc;
+      padding: 2mm 0;
+      border-bottom: 1px dotted #ddd;
+      display: flex;
+      justify-content: space-between;
+    }
+    .toc li::before { content: counter(toc) ". "; font-weight: 600; color: #8B0000; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 4mm 0 6mm;
+      font-size: 10pt;
+    }
+    th, td {
+      border: 1px solid #ddd;
+      padding: 2.5mm 3mm;
+      text-align: left;
+      vertical-align: top;
+    }
+    th { background: #8B0000; color: #fff; font-weight: 600; }
+    tr:nth-child(even) td { background: #faf8f6; }
+    .tip {
+      background: #f0f6ff;
+      border-left: 4px solid #1B4F8A;
+      padding: 3mm 4mm;
+      margin: 4mm 0;
+      font-size: 10pt;
+    }
+    .warn {
+      background: #fff8e6;
+      border-left: 4px solid #d4a24a;
+      padding: 3mm 4mm;
+      margin: 4mm 0;
+      font-size: 10pt;
+    }
+    .flow {
+      background: #f7f3ef;
+      border: 1px solid #e0d8cc;
+      border-radius: 4px;
+      padding: 4mm;
+      margin: 4mm 0;
+      font-family: Consolas, monospace;
+      font-size: 9.5pt;
+      line-height: 1.7;
+    }
+    .page-break { page-break-before: always; }
+    footer {
+      margin-top: 15mm;
+      padding-top: 4mm;
+      border-top: 1px solid #ddd;
+      font-size: 9pt;
+      color: #888;
+      text-align: center;
+    }
+    .badge { display: inline-block; background: #e8effe; color: #1B4F8A; padding: 0.5mm 2mm; border-radius: 3px; font-size: 9pt; font-weight: 600; }
+    @media print {
+      body { padding: 0; }
+      a { color: inherit; text-decoration: none; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="cover">
+  <div class="cover-flag">🇹🇹</div>
+  <h1>DutyDesk</h1>
+  <div class="subtitle">User Guide — Customs Tariff Classification &amp; Tax Advice</div>
+  <div class="subtitle">PAS Trinidad Brokerage Department</div>
+  <p style="margin-top:8mm;color:#666;max-width:140mm;margin-left:auto;margin-right:auto;">
+    Step-by-step instructions for clerks using DutyDesk to upload supplier invoices,
+    classify goods against the T&amp;T tariff, calculate customs duty and VAT, and send
+    tax advice to consignees.
+  </p>
+  <div class="meta">
+    Version 3.0 · Draft · June 2026<br />
+    T&amp;T Customs Act Chap. 78:01
+  </div>
+</div>
+
+<div class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><span>Introduction</span></li>
+    <li><span>Signing in</span></li>
+    <li><span>Navigation overview</span></li>
+    <li><span>Workflow at a glance</span></li>
+    <li><span>Upload — supplier invoices</span></li>
+    <li><span>Review &amp; classify line items</span></li>
+    <li><span>Manual entry</span></li>
+    <li><span>Tax calculator</span></li>
+    <li><span>Freight, insurance &amp; other charges</span></li>
+    <li><span>Invoice totals check</span></li>
+    <li><span>Sending tax advice</span></li>
+    <li><span>Brokerage fees</span></li>
+    <li><span>ASYCUDA handoff</span></li>
+    <li><span>Learned classifications</span></li>
+    <li><span>Reports &amp; team sync</span></li>
+    <li><span>Admin — user accounts</span></li>
+    <li><span>Tips &amp; troubleshooting</span></li>
+    <li><span>Glossary</span></li>
+  </ol>
+</div>
+
+<h2>1. Introduction</h2>
+<p>
+  <strong>DutyDesk</strong> is a web application for Trinidad &amp; Tobago customs brokerage clerks.
+  It helps you:
+</p>
+<ul>
+  <li>Upload commercial invoices (PDF or scanned images)</li>
+  <li>Extract line items automatically using AI</li>
+  <li>Match products to official <strong>T&amp;T tariff codes</strong> (6,000+ entries)</li>
+  <li>Calculate <strong>import duty, VAT, CIF</strong>, and container fees</li>
+  <li>Generate and send <strong>tax advice</strong> to consignees by email or WhatsApp</li>
+  <li>Share consignee records and sent worksheets across the team</li>
+</ul>
+<p>
+  DutyDesk runs in your browser. Your team shares one database for consignees, exchange rates,
+  and classification history. Invoice data in your current session is cleared when you sign out.
+</p>
+
+<h2>2. Signing in</h2>
+<ol>
+  <li>Open your DutyDesk URL in Chrome, Edge, or Firefox.</li>
+  <li>Enter your <strong>username</strong> and <strong>password</strong> provided by your administrator.</li>
+  <li>Click <strong>Sign in</strong>.</li>
+</ol>
+<div class="tip">
+  <strong>Tip:</strong> On first login, change the default admin password if your site still uses the
+  factory credentials. Contact your administrator for account setup.
+</div>
+<p>
+  <strong>Sign out</strong> (top right) clears invoice data stored in your browser for privacy.
+  Team consignees and sent reports remain in the shared database.
+</p>
+
+<h2>3. Navigation overview</h2>
+<p>Hover over any tab in the top navigation bar to see a short description of that section.</p>
+<table>
+  <thead>
+    <tr><th>Tab</th><th>Purpose</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><strong>Upload</strong></td><td>Add supplier invoices (PDF, JPG, PNG). AI extracts line items.</td></tr>
+    <tr><td><strong>Review</strong></td><td>Verify tariff codes, prices, and invoice totals before tax calculation.</td></tr>
+    <tr><td><strong>Manual</strong></td><td>Add items one at a time without uploading a full invoice.</td></tr>
+    <tr><td><strong>Taxes</strong></td><td>Calculate duty, VAT, CIF; print or send tax advice.</td></tr>
+    <tr><td><strong>Brokerage</strong></td><td>Estimate brokerage service fees from CIF value.</td></tr>
+    <tr><td><strong>ASYCUDA</strong></td><td>Prepare approved figures for customs entry.</td></tr>
+    <tr><td><strong>Learned</strong></td><td>View tariff codes the team has saved from past classifications.</td></tr>
+    <tr><td><strong>Reports</strong></td><td>History of tax advice sent — synced across clerks.</td></tr>
+    <tr><td><strong>Users</strong> <span class="badge">Admin</span></td><td>Manage clerk and admin accounts.</td></tr>
+  </tbody>
+</table>
+<p>On mobile, use the bottom navigation bar for the same tabs.</p>
+
+<h2 class="page-break">4. Workflow at a glance</h2>
+<div class="flow">
+  UPLOAD invoice(s)
+    → REVIEW line items &amp; tariff codes
+      → TAXES: enter freight / charges / exchange rate
+        → SEND tax advice (email or WhatsApp)
+          → optional: ASYCUDA entry · Brokerage fee quote
+</div>
+<p>Most shipments follow this path. Manual entry is used when you have no invoice document or need to add a few items quickly.</p>
+
+<h2>5. Upload — supplier invoices</h2>
+<h3>5.1 Supported files</h3>
+<ul>
+  <li><strong>PDF</strong> — single or multi-page; multiple invoices in one PDF are split automatically</li>
+  <li><strong>Images</strong> — JPG, PNG, WEBP (scanned invoices)</li>
+  <li>Maximum file size: approximately 10 MB</li>
+</ul>
+<h3>5.2 Steps</h3>
+<ol>
+  <li>Go to the <strong>Upload</strong> tab.</li>
+  <li>Drag and drop a file onto the drop zone, or click to browse.</li>
+  <li>Wait while DutyDesk: reads the file → extracts line items → matches the tariff database → classifies remaining items with AI.</li>
+  <li>You are taken automatically to <strong>Review</strong> when processing completes.</li>
+</ol>
+<h3>5.3 Multiple invoices</h3>
+<p>
+  If a PDF contains more than one invoice (different invoice numbers or layouts), each appears as a
+  separate entry in Review. The filename shows a tag such as <em>invoice.pdf · INV-12345</em>.
+</p>
+<div class="tip">
+  <strong>Tip:</strong> For best scan results, use clear, straight photos with all columns visible —
+  especially the line <strong>extension/total</strong> column on the right.
+</div>
+
+<h2>6. Review &amp; classify line items</h2>
+<h3>6.1 Invoice sidebar</h3>
+<p>Select an invoice from the left panel. Use <strong>+ Add Invoice</strong> to upload more files.</p>
+<h3>6.2 Invoice details</h3>
+<p>Edit supplier name, invoice number, date, ship-from/to, currency, and exchange rate if needed.</p>
+<ul>
+  <li><strong>Currency</strong> — set if the invoice is not in USD (EUR, GBP, CAD, CNY, TTD).</li>
+  <li><strong>Rate (1 CUR = TT$)</strong> — required for non-USD invoices before tax calculation.</li>
+</ul>
+<h3>6.3 Line item table</h3>
+<p>Hover column headers for explanations. Key columns:</p>
+<table>
+  <thead>
+    <tr><th>Column</th><th>Action</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Description</td><td>Click to edit if AI misread the product name.</td></tr>
+    <tr><td>T&amp;T Tariff Code</td><td>Edit directly, pick from similar codes, or re-classify with AI (↻ button).</td></tr>
+    <tr><td>Source</td><td><span class="badge">Official</span> = database match · <span class="badge">AI est.</span> = verify at ttbizlink.gov.tt</td></tr>
+    <tr><td>Qty / Unit Price / Total</td><td>Should match the supplier invoice. Total uses the printed line extension when available.</td></tr>
+  </tbody>
+</table>
+<h3>6.4 Export from Review</h3>
+<ul>
+  <li><strong>Export CSV</strong> — spreadsheet of line items with tariff codes</li>
+  <li><strong>Export Report</strong> — printable tariff classification report with your clerk name</li>
+</ul>
+
+<h2 class="page-break">7. Manual entry</h2>
+<p>Use when you need to classify items without a full invoice upload.</p>
+<ol>
+  <li>Go to <strong>Manual</strong>.</li>
+  <li>Type a product description — the tariff database is searched as you type.</li>
+  <li>Select a match from the dropdown, or click <strong>+ Add Item</strong> to use AI classification.</li>
+  <li>Enter quantity, unit, and unit price (USD).</li>
+</ol>
+<p>Items attach to the currently selected invoice, or a new <em>Quick Entry</em> list is created.</p>
+
+<h2>8. Tax calculator</h2>
+<h3>8.1 Select invoice(s)</h3>
+<ul>
+  <li>Choose one invoice from the dropdown, or check <strong>Combine all invoices</strong> to calculate multiple shipments together.</li>
+  <li>For non-USD invoices, confirm currency and TT$ exchange rate are set.</li>
+</ul>
+<h3>8.2 Customs tax inputs</h3>
+<table>
+  <thead>
+    <tr><th>Field</th><th>Description</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Invoice Total (Auto)</td><td>Sum of classified line items (converted to USD if needed).</td></tr>
+    <tr><td>Freight</td><td>International shipping — added to CIF.</td></tr>
+    <tr><td>Insurance</td><td>Cargo insurance — added to CIF.</td></tr>
+    <tr><td>Exchange Rate</td><td>Customs rate: 1 USD = TT$. Up to 5 decimal places. Blank uses team default.</td></tr>
+    <tr><td>Container Size</td><td>20ft (TT$750) or 40ft (TT$1,050) CES exam fee, if applicable.</td></tr>
+    <tr><td>User Fee</td><td>TT$80 UFC fee when checked.</td></tr>
+    <tr><td>VAT Exempt</td><td>Check if entire shipment is VAT exempt.</td></tr>
+  </tbody>
+</table>
+<h3>8.3 Tax breakdown</h3>
+<p>
+  The itemized table shows each line's share of CIF (TTD), duty, and VAT. Use checkboxes to mark
+  individual lines as duty-exempt or VAT-exempt. Override duty/VAT manually in Tax Advice Details if needed.
+</p>
+<h3>8.4 Consignee</h3>
+<p>
+  Click <strong>Manage</strong> to add or edit consignees (name, email, phone, address, BIR code).
+  Consignee records sync across the team. The consignee name must appear on certified cheques.
+</p>
+
+<h2>9. Freight, insurance &amp; other charges</h2>
+<p>On the Taxes tab, use the two sub-tabs under Customs Tax Inputs:</p>
+<h3>Freight &amp; Insurance</h3>
+<p>Enter amounts detected on the invoice or type manually. Values feed into CIF calculation.</p>
+<h3>Other Charges</h3>
+<p>
+  Sales tax, VAT/GST on the invoice, handling fees, and similar charges appear here when detected
+  during upload. You can add or edit each charge and mark <strong>Include in CIF</strong> when the
+  amount should be part of the customs value.
+</p>
+<div class="tip">
+  Charges detected at upload (freight, insurance, sales tax) are stored on the invoice and carry
+  through to tax calculation automatically.
+</div>
+
+<h2>10. Invoice totals check</h2>
+<p>
+  After upload, DutyDesk compares the <strong>sum of line items</strong> to the <strong>goods subtotal
+  or grand total</strong> printed on the supplier invoice.
+</p>
+<div class="warn">
+  <strong>If totals do not match:</strong> A yellow warning appears on Review. Click <strong>Review now</strong>
+  to see the difference. Fix missing lines, quantities, or prices before sending tax advice.
+</div>
+<p>
+  If you acknowledge the discrepancy after checking, click <strong>I've reviewed — continue</strong>.
+  Tax advice may note that line items and invoice totals may not be in sync.
+</p>
+
+<h2 class="page-break">11. Sending tax advice</h2>
+<h3>11.1 Prepare</h3>
+<ol>
+  <li>Complete tax calculation on the <strong>Taxes</strong> tab.</li>
+  <li>Fill in Worksheet #, Bill of Lading, and commodity description.</li>
+  <li>Select the consignee (with email and/or phone).</li>
+  <li>Click <strong>Send Tax Advice</strong>.</li>
+</ol>
+<h3>11.2 Send modal options</h3>
+<ul>
+  <li><strong>Email</strong> — sends from configured Gmail when direct send is enabled; otherwise opens your mail client with attachments.</li>
+  <li><strong>WhatsApp</strong> — when consignee phone is saved, opens WhatsApp with a summary; email may send automatically first.</li>
+  <li><strong>EC75 notice</strong> — adds signing instructions for the EC75 form.</li>
+  <li><strong>Tax calculation breakdown</strong> — optional second attachment explaining CIF, duty, and VAT step by step.</li>
+  <li><strong>Attachments</strong> — add B/L, signed forms, or other PDFs manually.</li>
+</ul>
+<h3>11.3 Other exports</h3>
+<ul>
+  <li><strong>Print</strong> — tax advice document for in-office use</li>
+  <li><strong>Itemized Report</strong> — detailed duty/VAT breakdown per line</li>
+  <li><strong>Send to ASYCUDA</strong> — passes approved figures to the ASYCUDA tab</li>
+</ul>
+<div class="tip">
+  Payment rules on the tax advice: under TT$5,000 — cash or certified cheque; over TT$5,000 — certified
+  cheque only, payable to <strong>THE COMPTROLLER OF CUSTOMS &amp; EXCISE</strong>.
+</div>
+
+<h2>12. Brokerage fees</h2>
+<p>
+  The <strong>Brokerage</strong> tab estimates your brokerage service charges from CIF value,
+  discount settings, and fee schedule. Use alongside tax calculation for a complete client quote.
+</p>
+
+<h2>13. ASYCUDA handoff</h2>
+<p>
+  After approving tax figures on the Taxes tab, click <strong>Send to ASYCUDA →</strong>.
+  The ASYCUDA tab receives line items with tariff codes, CIF (TTD/USD), duty, VAT, and consignee
+  for customs entry preparation.
+</p>
+
+<h2>14. Learned classifications</h2>
+<p>
+  When you confirm or correct a tariff code in Review, DutyDesk saves the description-to-code
+  mapping for the whole team. Future uploads matching that description use the learned code
+  automatically (<span class="badge">Learned</span> badge).
+</p>
+<p>View and manage all learned entries on the <strong>Learned</strong> tab.</p>
+
+<h2>15. Reports &amp; team sync</h2>
+<p>
+  Every tax advice sent is logged on <strong>Reports</strong> with worksheet number, consignee,
+  amounts, method (email/WhatsApp), and attachments. Logs sync to the shared database on login
+  and when you send new advice.
+</p>
+<p><strong>Consignees</strong> and <strong>exchange rate</strong> also sync across clerks.</p>
+
+<h2>16. Admin — user accounts</h2>
+<p>Administrators can access the <strong>Users</strong> tab to:</p>
+<ul>
+  <li>Create clerk and admin accounts</li>
+  <li>Set display names (shown on tax advice and reports)</li>
+  <li>Reset passwords</li>
+</ul>
+
+<h2 class="page-break">17. Tips &amp; troubleshooting</h2>
+<table>
+  <thead>
+    <tr><th>Issue</th><th>What to do</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Review tab is greyed out</td><td>Upload at least one invoice first.</td></tr>
+    <tr><td>AI classification fails</td><td>Check internet connection; contact admin if API key is not configured.</td></tr>
+    <tr><td>Line totals don't match invoice</td><td>Edit qty/prices in Review; check for missing lines or charges counted as products.</td></tr>
+    <tr><td>Non-USD invoice — wrong tax</td><td>Set invoice currency and TT$ rate on Review or Taxes tab.</td></tr>
+    <tr><td>Exchange rate outdated</td><td>Enter current Customs Division rate on Taxes tab; optionally save as team default.</td></tr>
+    <tr><td>Email won't send directly</td><td>Admin must configure Google Apps Script webhook; use Mail App fallback.</td></tr>
+    <tr><td>Tariff code uncertain</td><td>Verify at <strong>ttbizlink.gov.tt</strong> HS Code Tariff Finder.</td></tr>
+    <tr><td>Previous user's data visible</td><td>Always sign out when leaving the workstation.</td></tr>
+  </tbody>
+</table>
+
+<h2>18. Glossary</h2>
+<table>
+  <thead>
+    <tr><th>Term</th><th>Meaning</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>CIF</td><td>Cost, Insurance &amp; Freight — customs value basis (goods + freight + insurance + applicable charges).</td></tr>
+    <tr><td>ICD</td><td>Import Customs Duty.</td></tr>
+    <tr><td>VAT</td><td>Value Added Tax — 12.5% on CIF + duty (unless exempt).</td></tr>
+    <tr><td>CES</td><td>Container Examination System fee.</td></tr>
+    <tr><td>UFC</td><td>User Fee Charge — TT$80 when applicable.</td></tr>
+    <tr><td>EC75</td><td>Customs declaration form — may require consignee signature.</td></tr>
+    <tr><td>ASYCUDA</td><td>Automated customs entry system used by T&amp;T Customs.</td></tr>
+    <tr><td>Tariff code</td><td>Harmonized System code (e.g. 8708.99.00) determining duty rate.</td></tr>
+    <tr><td>Consignee</td><td>Importer of record — name must match certified cheque.</td></tr>
+  </tbody>
+</table>
+
+<footer>
+  DutyDesk User Guide · PAS Trinidad Brokerage Department · Draft June 2026<br />
+  Figures are estimates subject to final assessment by T&amp;T Customs &amp; Excise.
+</footer>
+
+</body>
+</html>

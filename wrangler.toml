@@ -1,0 +1,49 @@
+name = "dutydesk"
+main = "apps/worker/src/index.ts"
+compatibility_date = "2024-11-01"
+compatibility_flags = ["nodejs_compat", "global_fetch_strictly_public"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "pas-trinidad"
+database_id = "83484125-4727-4514-b700-7297c5583866"
+migrations_dir = "migrations"
+
+[[kv_namespaces]]
+binding = "SESSIONS"
+id = "d9efd932a3184ee28f163c0a44b92489"
+
+[[r2_buckets]]
+binding = "DOCUMENTS"
+bucket_name = "pas-brokerage-uploads"
+
+[vars]
+ENVIRONMENT = "development"
+SESSION_TTL_HOURS = "24"
+DOC_OCR_BATCH_SIZE = "4"
+DOC_AI_LINE_BATCH_SIZE = "15"
+DOC_MAX_PAGES = "100"
+DOC_MAX_RETRIES = "3"
+# Outbound email identity (Gmail "Send mail as" must include EMAIL_FROM_ADDRESS on the script account)
+EMAIL_FROM_NAME = "PAS Trinidad Brokerage Department"
+EMAIL_FROM_ADDRESS = "brokerage@pastrinidad.com"
+EMAIL_REPLY_TO = "brokerage@pastrinidad.com"
+FLOWBOARD_WEBHOOK_URL = "https://flowboardtt.mwilson-561.workers.dev/api/integrations/tariff-classifier/worksheet-sent"
+FLOWBOARD_API_BASE_URL = "https://flowboardtt.mwilson-561.workers.dev"
+FLOWBOARD_OPS_URL = "https://flowboard-ops.mwilson-561.workers.dev"
+TAX_ADVICE_SHARE_TTL_DAYS = "30"
+
+[[services]]
+binding = "FLOWBOARD_SERVICE"
+service = "flowboardtt"
+
+[dev]
+port = 8787
+
+[triggers]
+crons = ["17 3 * * *"]
+
+[assets]
+directory = "apps/web/dist"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
