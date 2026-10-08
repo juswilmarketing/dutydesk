@@ -73,7 +73,18 @@ jobs.put("/current", async (c) => {
 
 async function closeJob(c: Context<JobsEnv>, status: Exclude<DutyJobStatus, "draft">) {
   const id = c.req.param("id") ?? "";
-  const parsed = parseClosePayload(status === "sent" ? await c.req.json().catch(() => undefined) : undefined);
+  let closeBody: unknown = undefined;
+  if (status === "sent") {
+    const raw = await c.req.text();
+    if (raw.trim() !== "") {
+      try {
+        closeBody = JSON.parse(raw);
+      } catch {
+        return c.json({ error: "Invalid JSON body" }, 400);
+      }
+    }
+  }
+  const parsed = parseClosePayload(closeBody);
   if (!parsed.ok) return c.json({ error: parsed.error }, 400);
 
   const row = await c.env.DB.prepare("SELECT status FROM duty_jobs WHERE id = ? AND user_id = ?")
