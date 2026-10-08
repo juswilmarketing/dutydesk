@@ -1,6 +1,7 @@
 import type { EmailModalData } from "@/components/email/EmailModal";
 import { fmtTTD } from "@pas/tax-engine";
 import { COMPANY_EMAIL, COMPANY_NAME, COMPANY_SHORT } from "@/lib/company";
+import { isCustomerSafeShareUrl } from "@/lib/export/tax-email-body";
 
 import { parsePhoneList } from "@/lib/contact-list";
 
@@ -53,9 +54,10 @@ export function buildWhatsAppTaxMessage(
   const worksheetRef = data.worksheetNum?.trim() || "your shipment";
   const intro = `Worksheet *${worksheetRef}* has been prepared. Summary of charges below:`;
 
-  const pdfBlock = opts.secureViewUrl?.trim()
-    ? `📄 See link to view tax advice:\n${opts.secureViewUrl.trim()}`
-    : "📄 Tax advice link will be sent by email.";
+  const safeView = isCustomerSafeShareUrl(opts.secureViewUrl) ? opts.secureViewUrl!.trim() : "";
+  const pdfBlock = safeView
+    ? `📄 Backup online copy (PAS Trinidad):\n${safeView}`
+    : "📄 Tax advice PDF is attached to your email — please check email for the document.";
 
   const emailLine = opts.consigneeEmail?.trim()
     ? `📧 To view all attachments, please check your email (${opts.consigneeEmail.trim()}) for approval.`

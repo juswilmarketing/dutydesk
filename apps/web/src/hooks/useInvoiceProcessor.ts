@@ -1,6 +1,12 @@
 import { useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { catFromCode, extractPartNumbers, getTariffRows } from "@pas/tariff-data";
+import {
+  groupInvoiceRows,
+  detectInvoiceLineType,
+  buildProductClassificationProfile,
+  isNonMerchandiseLine,
+} from "@pas/product-intelligence";
 import type {
   Invoice,
   InvoiceCharge,
@@ -238,6 +244,8 @@ export function useInvoiceProcessor() {
         parsed: ParsedInvoice;
         items: LineItem[];
         extraCharges: InvoiceCharge[];
+        documentGoodsTotal: string;
+        documentGrandTotal: string;
       }> = [];
 
       for (let index = 0; index < parsedInvoices.length; index++) {
@@ -245,11 +253,44 @@ export function useInvoiceProcessor() {
         const invId = baseId + index * 10_000;
         const supplierName = parsed.supplier || "";
 
-        // Defense in depth: strip charge/fee rows the parser may still have left in items
-        const chargeLike = parsed.items.filter((it) => isNonProductInvoiceLine(it.description));
-        const productParsedItems = parsed.items.filter((it) => !isNonProductInvoiceLine(it.description));
+        // Defense in depth: strip charge/fee rows; group continuation fragments
+        const grouped = groupInvoiceRows(
+          parsed.items.map((it) => ({
+            description: it.description,
+            qty: it.qty,
+            unitPrice: it.unit_price,
+            lineTotal: it.line_total,
+            unit: it.unit,
+          })),
+        );
+        const chargeLike = [
+          ...parsed.items.filter((it) => isNonProductInvoiceLine(it.description)),
+          ...grouped.charges.map((c) => ({
+            description: c.description,
+            qty: 1,
+            unit: "EA",
+            unit_price: c.amount,
+            line_total: c.amount,
+          })),
+        ];
+        const productParsedItems = grouped.merchandise.length
+          ? grouped.merchandise.map((m) => ({
+              description: m.cleanDescription || m.rawDescription,
+              qty: m.quantity,
+              unit: m.unit,
+              unit_price: m.unitPrice,
+              line_total: m.lineTotal,
+              _extraction: m,
+            }))
+          : parsed.items
+              .filter((it) => !isNonProductInvoiceLine(it.description))
+              .map((it) => ({ ...it, _extraction: null as null }));
+        // Only real CIF charges — never promote subtotal/total/payment rows into charges
         const extraCharges = chargeLike
-          .filter((it) => parseChargeAmount(it.line_total) > 0)
+          .filter((it) => {
+            const typed = detectInvoiceLineType(it.description);
+            return Boolean(typed.chargeKind) && parseChargeAmount(it.line_total) > 0;
+          })
           .map((it) => ({
             id: createChargeId(),
             kind: chargeKindFromDescription(it.description),
@@ -258,13 +299,49 @@ export function useInvoiceProcessor() {
             includeInCif: true,
           }));
 
+        // Recover document totals if the parser left them empty but rows carried amounts
+        let documentGoodsTotal = parsed.goods_subtotal ? String(parsed.goods_subtotal) : "";
+        let documentGrandTotal = parsed.invoice_total ? String(parsed.invoice_total) : "";
+        if (!documentGoodsTotal || !documentGrandTotal) {
+          for (const it of parsed.items) {
+            const typed = detectInvoiceLineType(it.description);
+            const amt = parseChargeAmount(it.line_total);
+            if (amt <= 0) continue;
+            if (!documentGoodsTotal && typed.lineType === "subtotal") documentGoodsTotal = String(amt);
+            if (!documentGrandTotal && typed.lineType === "total") documentGrandTotal = String(amt);
+          }
+        }
+        if (!documentGoodsTotal) {
+          const lineSum = productParsedItems.reduce(
+            (s, it) => s + parseChargeAmount(it.line_total || (it.qty || 1) * (it.unit_price || 0)),
+            0,
+          );
+          if (lineSum > 0) documentGoodsTotal = String(Math.round(lineSum * 100) / 100);
+        }
+        if (!documentGrandTotal && documentGoodsTotal) {
+          const chargeSum = [
+            ...mergeChargesFromParsed(parsed.charges),
+            ...extraCharges,
+          ].reduce((s, c) => s + parseChargeAmount(c.amount), 0);
+          documentGrandTotal = String(
+            Math.round((parseChargeAmount(documentGoodsTotal) + chargeSum) * 100) / 100,
+          );
+        }
+
         const baseItems: LineItem[] = productParsedItems.map((it, i) => {
-          const { part_number, model_number } = extractPartNumbers(it.description);
+          const extraction = "_extraction" in it ? it._extraction : null;
+          const desc = it.description;
+          const { part_number, model_number } = extractPartNumbers(desc);
           const lineTotal = it.line_total > 0 ? it.line_total : (it.qty || 1) * (it.unit_price || 0);
           const qty = it.qty || 1;
+          const lineType = detectInvoiceLineType(desc).lineType;
+          const profilePreview = buildProductClassificationProfile(desc, null, { supplier: supplierName });
+          const needsExtractionReview = Boolean(
+            extraction && (extraction.groupingConfidence < 0.55 || extraction.groupingWarnings.length),
+          );
           return {
             id: invId + i,
-            desc: it.description,
+            desc,
             qty,
             unit: it.unit || "EA",
             price: qty > 0 ? lineTotal / qty : it.unit_price || 0,
@@ -272,14 +349,29 @@ export function useInvoiceProcessor() {
             tariff_code: null,
             duty_rate: null,
             category: null,
-            notes: "Building product profile…",
+            notes: needsExtractionReview
+              ? "Product line may have been extracted incorrectly."
+              : "Building product profile…",
             status: "loading" as const,
             source: "ai" as const,
-            part_number,
-            model_number,
+            part_number: extraction?.supplierSku || part_number,
+            model_number: extraction?.secondarySku || model_number,
             question_answers: [],
+            line_type: lineType,
+            extraction: {
+              cleanDescription: extraction?.cleanDescription || profilePreview.cleanDescription || desc,
+              supplierSku: extraction?.supplierSku || profilePreview.sku || part_number,
+              secondarySku: extraction?.secondarySku || "",
+              countryOfOrigin: extraction?.countryOfOrigin || "",
+              specifications: (extraction?.specifications
+                || profilePreview.technicalSpecifications
+                || {}) as Record<string, string | number | boolean | null>,
+              groupingConfidence: extraction?.groupingConfidence ?? 0.8,
+              groupingWarnings: extraction?.groupingWarnings || [],
+              needsExtractionReview,
+            },
           };
-        });
+        }).filter((item) => !isNonMerchandiseLine(item.desc));
 
         if (!baseItems.length) continue;
 
@@ -485,13 +577,14 @@ export function useInvoiceProcessor() {
           batchStats.tokensSavedEstimate = batchStats.totalLines * 200;
         }
 
-        drafts.push({ invId, parsed, items, extraCharges });
+        drafts.push({ invId, parsed, items, extraCharges, documentGoodsTotal, documentGrandTotal });
       }
 
       recordClassificationBatch(batchStats);
 
       onStep?.(4);
-      const newInvoices: Invoice[] = drafts.map(({ invId, parsed, items, extraCharges }, index) => ({
+      const newInvoices: Invoice[] = drafts.map(
+        ({ invId, parsed, items, extraCharges, documentGoodsTotal, documentGrandTotal }, index) => ({
         id: invId,
         filename: invoiceLabel(sourceName, parsed, index, drafts.length),
         meta: {
@@ -504,14 +597,15 @@ export function useInvoiceProcessor() {
           currency: "USD",
           currencyRateToTTD: "",
           ...emptyInvoiceMetaExtras(),
-          documentGoodsTotal: parsed.goods_subtotal ? String(parsed.goods_subtotal) : "",
-          documentGrandTotal: parsed.invoice_total ? String(parsed.invoice_total) : "",
+          documentGoodsTotal,
+          documentGrandTotal,
           charges: [...mergeChargesFromParsed(parsed.charges), ...extraCharges],
           sourceJobId,
         },
         items,
         status: "done" as const,
-      }));
+      }),
+      );
 
       newInvoices.forEach((inv) => {
         const check = checkInvoiceTotals(inv);

@@ -63,15 +63,28 @@ export function mergeSourceLines(
   return fresh.map((line) => {
     const prev = byId.get(line.id);
     if (!prev) return line;
+    const classificationChanged =
+      normalizeHsCode(prev.hs_code) !== normalizeHsCode(line.hs_code)
+      || (prev.duty_rate || "") !== (line.duty_rate || "")
+      || Math.abs((prev.duty_amount || 0) - (line.duty_amount || 0)) > 0.009;
+
+    // Always refresh classification + tax amounts from the live tariff calculation.
+    // Preserve clerk worksheet edits (description, grouping, review notes) only.
     return {
       ...line,
       original_description: prev.original_description || line.original_description,
-      worksheet_description: prev.worksheet_description || line.worksheet_description,
-      hs_code: prev.hs_code ?? line.hs_code,
-      duty_rate: prev.duty_rate ?? line.duty_rate,
-      vat_rate: prev.vat_rate || line.vat_rate,
-      group_id: prev.group_id,
-      reviewed_status: prev.reviewed_status,
+      worksheet_description: isDescriptionEdited(prev)
+        ? prev.worksheet_description
+        : line.worksheet_description,
+      hs_code: line.hs_code,
+      duty_rate: line.duty_rate,
+      vat_rate: line.vat_rate,
+      duty_amount: line.duty_amount,
+      vat_amount: line.vat_amount,
+      value: line.value,
+      quantity: line.quantity,
+      group_id: classificationChanged && !prev.auto_group_exempt ? null : prev.group_id,
+      reviewed_status: classificationChanged ? "pending" : prev.reviewed_status,
       internal_notes: prev.internal_notes,
       auto_group_exempt: prev.auto_group_exempt,
     };

@@ -22,6 +22,8 @@ export interface Env {
   /** Service binding to flowboardtt — avoids CF 1042 on worker-to-worker fetch */
   FLOWBOARD_SERVICE?: Fetcher;
   TAX_ADVICE_SHARE_TTL_DAYS?: string;
+  /** Branded origin for customer-facing share links (e.g. https://advice.pastrinidad.com). */
+  TAX_ADVICE_SHARE_BASE_URL?: string;
   DOC_OCR_BATCH_SIZE?: string;
   DOC_AI_LINE_BATCH_SIZE?: string;
   DOC_MAX_PAGES?: string;

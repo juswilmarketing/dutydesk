@@ -1,3 +1,9 @@
+import {
+  detectInvoiceLineType,
+  chargeKindFromLineType,
+  isNonMerchandiseLine,
+} from "@pas/product-intelligence";
+
 export type ParsedInvoiceItem = {
   description: string;
   qty: number;
@@ -88,61 +94,15 @@ function normalizeCharges(raw: RawCharge[] | undefined) {
 export function detectChargeFromDescription(
   description: string,
 ): { kind: string; label: string } | null {
-  const raw = description.trim();
-  if (!raw) return null;
-  const d = raw.toLowerCase().replace(/\s+/g, " ");
-
-  // Summary / discount rows — strip from items, do not keep as charges
-  if (
-    /^(sub\s*-?\s*total|goods\s+subtotal|merchandise\s+total|invoice\s+total|grand\s+total|total\s+due|amount\s+due|balance\s+due|total|discount|less\s+discount|promo(tion)?)$/i.test(
-      d,
-    )
-  ) {
-    return null;
-  }
-
-  const shortRow = d.split(/\s+/).length <= 8 && !/\d{5,}/.test(d);
-
-  if (
-    shortRow &&
-    /\b(freight|shipping|carriage|delivery\s*(charge|fee)|fuel\s*surcharge)\b/i.test(d)
-  ) {
-    return { kind: "freight", label: raw };
-  }
-  if (shortRow && /\binsurance\b/i.test(d)) {
-    return { kind: "insurance", label: raw };
-  }
-  if (shortRow && /\b(sales\s*tax|vat|gst|hst|pst)\b/i.test(d)) {
-    return { kind: "sales_tax", label: raw };
-  }
-  // Import surcharge and similar fees — primary case reported by users
-  if (
-    /\bimport\s+surcharge\b/i.test(d) ||
-    /^surcharge\b/i.test(d) ||
-    (shortRow &&
-      /\b(surcharge|handling(\s*(fee|charge))?|admin(istrative)?\s*(fee|charge)|bank\s*fee|wire\s*fee|processing\s*fee|service\s*charge|misc(ellaneous)?\s*(fee|charge)?)\b/i.test(
-        d,
-      ))
-  ) {
-    return { kind: "other", label: raw };
-  }
-
-  return null;
+  return chargeKindFromLineType(description);
 }
 
 /** True when a description should not be classified as a product line. */
 export function isNonProductInvoiceLine(description: string): boolean {
-  const d = description.trim().toLowerCase().replace(/\s+/g, " ");
-  if (!d) return true;
-  if (
-    /^(sub\s*-?\s*total|goods\s+subtotal|merchandise\s+total|invoice\s+total|grand\s+total|total\s+due|amount\s+due|balance\s+due|total|discount|less\s+discount)$/i.test(
-      d,
-    )
-  ) {
-    return true;
-  }
-  return detectChargeFromDescription(description) != null;
+  return isNonMerchandiseLine(description);
 }
+
+export { detectInvoiceLineType, isNonMerchandiseLine };
 
 export function normalizeParsedItem(raw: RawItem): ParsedInvoiceItem | null {
   const description = raw.description?.trim();
@@ -157,10 +117,11 @@ export function normalizeParsedItem(raw: RawItem): ParsedInvoiceItem | null {
     lineTotal = roundMoney(qty * unitPriceRaw);
   }
 
-  if (lineTotal <= 0) return null;
-
+  // Keep merchandise rows even when amounts failed to OCR — clerk can correct totals.
   // Prefer the printed line extension — unit prices on scans are often rounded wrong.
-  const unit_price = qty > 0 ? lineTotal / qty : unitPriceRaw;
+  const unit_price = lineTotal > 0 && qty > 0
+    ? lineTotal / qty
+    : unitPriceRaw;
 
   return {
     description,
@@ -213,37 +174,60 @@ function normalizeInvoice(raw: RawInvoice): ParsedInvoice | null {
 
   const productItems: ParsedInvoiceItem[] = [];
   const movedCharges: Array<{ kind: string; label: string; amount: number }> = [];
+  let harvestedGoodsSubtotal: number | null = null;
+  let harvestedInvoiceTotal: number | null = null;
 
   for (const it of parsedItems) {
-    // Drop pure total / discount rows
-    const d = it.description.trim().toLowerCase().replace(/\s+/g, " ");
+    const typed = detectInvoiceLineType(it.description);
+    const amount = roundMoney(it.line_total);
+
+    if (typed.lineType === "subtotal" && amount > 0) {
+      harvestedGoodsSubtotal = amount;
+      continue;
+    }
+    if (typed.lineType === "total" && amount > 0) {
+      harvestedInvoiceTotal = amount;
+      continue;
+    }
     if (
-      /^(sub\s*-?\s*total|goods\s+subtotal|merchandise\s+total|invoice\s+total|grand\s+total|total\s+due|amount\s+due|balance\s+due|total|discount|less\s+discount)$/i.test(
-        d,
-      )
+      typed.lineType === "discount"
+      || typed.lineType === "payment"
+      || typed.lineType === "informational"
+      || typed.lineType === "unknown" && typed.excludeFromMerchandise
     ) {
       continue;
     }
 
+    if (typed.excludeFromMerchandise && typed.chargeKind) {
+      movedCharges.push({
+        kind: typed.chargeKind,
+        label: typed.label || it.description,
+        amount,
+      });
+      continue;
+    }
+
+    // Legacy charge detector for anything the enum missed
     const charge = detectChargeFromDescription(it.description);
     if (charge) {
       movedCharges.push({
         kind: charge.kind,
         label: charge.label,
-        amount: roundMoney(it.line_total),
+        amount,
       });
       continue;
     }
+
+    if (typed.excludeFromMerchandise) continue;
     productItems.push(it);
   }
 
   if (!productItems.length) return null;
 
-  const goodsFromDoc = numOrNull(raw.goods_subtotal);
+  const goodsFromDoc = numOrNull(raw.goods_subtotal) || harvestedGoodsSubtotal;
   const { items: reconciled, goodsSubtotal } = reconcileInvoiceItems(productItems, goodsFromDoc);
 
   const charges = [...normalizeCharges(raw.charges), ...normalizeCharges(movedCharges)];
-  // Dedupe identical kind+label+amount
   const seen = new Set<string>();
   const dedupedCharges = charges.filter((c) => {
     const key = `${c.kind}|${c.label.toLowerCase()}|${c.amount}`;
@@ -252,6 +236,13 @@ function normalizeInvoice(raw: RawInvoice): ParsedInvoice | null {
     return true;
   });
 
+  const chargeSum = roundMoney(dedupedCharges.reduce((s, c) => s + c.amount, 0));
+  let invoiceTotal = numOrNull(raw.invoice_total) || harvestedInvoiceTotal;
+  // Derive grand total when the model omitted it but goods + charges are known
+  if (!invoiceTotal && goodsSubtotal && goodsSubtotal > 0) {
+    invoiceTotal = roundMoney(goodsSubtotal + chargeSum);
+  }
+
   return {
     invoice_number: raw.invoice_number?.trim() || null,
     invoice_date: raw.invoice_date?.trim() || null,
@@ -259,7 +250,7 @@ function normalizeInvoice(raw: RawInvoice): ParsedInvoice | null {
     ship_from: raw.ship_from?.trim() || null,
     ship_to: raw.ship_to?.trim() || null,
     goods_subtotal: goodsSubtotal,
-    invoice_total: numOrNull(raw.invoice_total),
+    invoice_total: invoiceTotal,
     charges: dedupedCharges,
     items: reconciled,
   };
@@ -278,7 +269,10 @@ function extractJsonPayload(text: string): unknown {
   }
 }
 
-export function parseInvoicesFromModelText(text: string): ParsedInvoice[] {
+export function parseInvoicesFromModelText(
+  text: string,
+  options?: { allowEmpty?: boolean },
+): ParsedInvoice[] {
   const data = extractJsonPayload(text);
   let rawList: RawInvoice[] = [];
 
@@ -297,7 +291,11 @@ export function parseInvoicesFromModelText(text: string): ParsedInvoice[] {
     .map((raw) => normalizeInvoice(raw))
     .filter((inv): inv is ParsedInvoice => inv !== null);
 
-  if (!invoices.length) throw new Error("No line items found in this file.");
+  // Multi-page OCR batches often include cover/terms pages with no merchandise.
+  // Callers that process page ranges should pass allowEmpty: true.
+  if (!invoices.length && !options?.allowEmpty) {
+    throw new Error("No line items found in this file.");
+  }
   return invoices;
 }
 
@@ -310,21 +308,35 @@ Your job:
 - Extract ALL product/goods line items from EVERY invoice with EXACT printed numbers.
 - Extract invoice totals and charges separately from product lines.
 
+CRITICAL — totals fields (required whenever visible on the document):
+- Always set goods_subtotal to the printed goods/merchandise subtotal (before freight, tax, and fees).
+- Always set invoice_total to the printed grand total / amount due / total payment.
+- Never leave goods_subtotal or invoice_total null/0 when those amounts are printed.
+- Do NOT put subtotal, invoice total, amount due, or payment rows in the items array — put their amounts in goods_subtotal / invoice_total instead.
+- goods_subtotal MUST equal the sum of all merchandise item line_total values (before freight/tax).
+- Verify your line_total values add up to goods_subtotal before responding.
+
 CRITICAL — line item amounts (especially on scanned invoices):
 - Each item MUST include line_total: the printed line extension / amount / total for that row (the rightmost money column for the product line).
 - Also include qty and unit_price when visible, but line_total is the authoritative amount for that row.
 - Copy numbers EXACTLY as printed (do not round unit_price and then multiply — use the printed line total).
 - If only line_total and qty are visible, set unit_price = line_total / qty.
-- goods_subtotal MUST equal the sum of all item line_total values (before freight/tax).
-- Verify your line_total values add up to goods_subtotal before responding.
 
-Product line items ONLY — exclude freight, insurance, sales tax, VAT/GST, import surcharge, fuel surcharge, handling fees, discounts, subtotal rows, and grand total rows from the items array.
-NEVER put "Import Surcharge", "Surcharge", freight, insurance, tax, or fee rows in the items array — they are not products and must not be tariff-classified.
-Put freight, insurance, sales tax/VAT/GST, import surcharge, handling, and similar amounts in the charges array (not as product line items).
-Use short product descriptions.
+Product line items ONLY — exclude freight, insurance, sales tax, VAT/GST, import surcharge, fuel surcharge (including code "DF"), handling fees, discounts, subtotal rows, payment rows (Visa/MasterCard/Total Payment), and grand total / amount due rows from the items array.
+NEVER put "Import Surcharge", "Fuel Surcharge", "DF", freight, insurance, tax, payment, or fee rows in the items array — they are not products and must not be tariff-classified.
+Put freight, insurance, sales tax/VAT/GST, import surcharge, fuel surcharge, handling, and similar amounts in the charges array (not as product line items).
+
+CRITICAL — multiline product descriptions:
+- Merge continuation rows into ONE merchandise item when they share one quantity/price/extension.
+- Do NOT create separate items for: part numbers, secondary SKUs, country of origin, rim width range, load/speed ratings, or specification fragments.
+- Example: part number + "275/50R19 BS ALNZ SPT AS" + "112V XL" + "Poland" + "Rim Width Range..." = ONE tyre line.
+- Prefer description text that includes the product identity (e.g. tyre size + model), not orphaned SKUs alone.
+- Keep supplier SKU in the description when helpful, but the product noun/spec must be present.
+
+Use short but complete product descriptions (include size/model for tyres/wheels/switches).
 
 Charge kinds (use exactly one per charge): freight | insurance | sales_tax | other
-Use kind "other" for import surcharge and miscellaneous fees.
+Use kind "freight" for fuel surcharge / DF. Use kind "other" for import surcharge and miscellaneous fees.
 
 Return ONLY valid JSON (no markdown):
 {"invoices":[{"invoice_number":"string or null","invoice_date":"string or null","supplier":"string or null","ship_from":"string or null","ship_to":"string or null","goods_subtotal":0,"invoice_total":0,"charges":[{"kind":"freight","label":"Freight","amount":0}],"items":[{"description":"concise product name","qty":1,"unit":"EA","unit_price":0,"line_total":0}]}]}

@@ -273,6 +273,10 @@ export const api = {
       evidenceIds?: number[];
       productMasterId?: number | null;
       clarificationAnswer?: { id: string; value: string } | null;
+      consignee?: string | null;
+      invoiceNotes?: string | null;
+      forceSupplierSearch?: boolean;
+      applySupplierEvidence?: boolean;
     },
   ) =>
     request<ClassificationRecommendationResponse>(
@@ -280,6 +284,44 @@ export const api = {
       { method: "POST", body: JSON.stringify(payload) },
       LONG_TIMEOUT_MS,
     ),
+
+  searchSupplierProduct: (payload: {
+    supplier?: string;
+    sku?: string;
+    description: string;
+    forceSearch?: boolean;
+    allowExternal?: boolean;
+  }) =>
+    request<{
+      status: string;
+      searched: boolean;
+      evidence: import("@pas/shared-types").SupplierProductEvidence | null;
+      notification?: string;
+      queries: string[];
+    }>("/api/supplier-search/search", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }, LONG_TIMEOUT_MS),
+
+  approveSupplierEvidence: (payload: {
+    supplier: string;
+    sku?: string;
+    rawDescription: string;
+    canonicalProduct: string;
+    material?: string;
+    primaryFunction?: string;
+    intendedUse?: string;
+    technicalSpecifications?: Record<string, string | number | boolean | null>;
+    approvedTariff?: string;
+    sourceUrl?: string;
+    sourceType?: string;
+    emptyOrFilled?: string;
+    excerpt?: string;
+  }) =>
+    request<{ success: true }>("/api/supplier-search/approve", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
 
   applyLineRecommendation: (
     lineId: number,
@@ -559,6 +601,40 @@ export const api = {
     }),
   disableProductDictionary: (id: number) =>
     request<{ ok: boolean }>(`/api/product-intelligence/product-dictionary/${id}`, { method: "DELETE" }),
+
+  getProductFamilyRules: () =>
+    request<{
+      entries: Array<{
+        id: number;
+        canonical_product: string;
+        alias: string;
+        product_family: string;
+        likely_chapters: string[];
+        likely_headings: string[];
+        required_attributes: string[];
+        prohibited_chapters: string[];
+        priority: number;
+        active: boolean;
+        notes?: string | null;
+      }>;
+    }>("/api/product-intelligence/product-family-rules"),
+  saveProductFamilyRule: (payload: {
+    canonical_product: string;
+    alias: string;
+    product_family: string;
+    likely_chapters?: string[];
+    likely_headings?: string[];
+    required_attributes?: string[];
+    prohibited_chapters?: string[];
+    priority?: number;
+    notes?: string;
+  }) =>
+    request<{ ok: boolean }>("/api/product-intelligence/product-family-rules", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  disableProductFamilyRule: (id: number) =>
+    request<{ ok: boolean }>(`/api/product-intelligence/product-family-rules/${id}`, { method: "DELETE" }),
 
   getIndustryDictionary: () =>
     request<{ entries: IndustryDictionaryEntry[] }>("/api/product-intelligence/industry-dictionary"),

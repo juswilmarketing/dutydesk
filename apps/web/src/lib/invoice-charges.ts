@@ -1,4 +1,9 @@
 import type { Invoice, InvoiceCharge, InvoiceChargeKind, LineItem } from "@pas/shared-types";
+import {
+  detectInvoiceLineType,
+  isNonMerchandiseLine,
+  chargeKindFromLineType,
+} from "@pas/product-intelligence";
 
 export function createChargeId(): string {
   return `chg-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -16,42 +21,24 @@ export function emptyInvoiceMetaExtras() {
 
 export function normalizeChargeKind(raw: string): InvoiceChargeKind {
   const k = raw.toLowerCase().replace(/\s+/g, "_");
-  if (k === "freight" || k.includes("shipping") || k.includes("carriage")) return "freight";
+  if (k === "freight" || k.includes("shipping") || k.includes("carriage") || k === "surcharge") return "freight";
   if (k === "insurance") return "insurance";
-  if (k === "sales_tax" || k.includes("sales") || k === "vat" || k === "gst" || k === "hst") return "sales_tax";
+  if (k === "sales_tax" || k.includes("sales") || k === "vat" || k === "gst" || k === "hst" || k === "tax") return "sales_tax";
   return "other";
 }
 
 /** Descriptions that are invoice charges/fees — never classify as products. */
 export function isNonProductInvoiceLine(description: string): boolean {
-  const d = description.trim().toLowerCase().replace(/\s+/g, " ");
-  if (!d) return true;
-  if (
-    /^(sub\s*-?\s*total|goods\s+subtotal|merchandise\s+total|invoice\s+total|grand\s+total|total\s+due|amount\s+due|balance\s+due|total|discount|less\s+discount)$/i.test(
-      d,
-    )
-  ) {
-    return true;
-  }
-  const shortRow = d.split(/\s+/).length <= 8 && !/\d{5,}/.test(d);
-  if (shortRow && /\b(freight|shipping|carriage|insurance|sales\s*tax|vat|gst|hst)\b/i.test(d)) return true;
-  if (/\bimport\s+surcharge\b/i.test(d) || /^surcharge\b/i.test(d)) return true;
-  if (
-    shortRow &&
-    /\b(surcharge|handling(\s*(fee|charge))?|admin(istrative)?\s*(fee|charge)|fuel\s*surcharge|processing\s*fee|service\s*charge)\b/i.test(
-      d,
-    )
-  ) {
-    return true;
-  }
-  return false;
+  return isNonMerchandiseLine(description);
 }
 
 export function chargeKindFromDescription(description: string): InvoiceChargeKind {
-  const d = description.toLowerCase();
-  if (/\b(freight|shipping|carriage|fuel\s*surcharge)\b/i.test(d)) return "freight";
-  if (/\binsurance\b/i.test(d)) return "insurance";
-  if (/\b(sales\s*tax|vat|gst|hst)\b/i.test(d)) return "sales_tax";
+  const typed = detectInvoiceLineType(description);
+  if (typed.chargeKind) return typed.chargeKind;
+  const legacy = chargeKindFromLineType(description);
+  if (legacy?.kind === "freight") return "freight";
+  if (legacy?.kind === "insurance") return "insurance";
+  if (legacy?.kind === "sales_tax") return "sales_tax";
   return "other";
 }
 

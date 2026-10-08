@@ -19,6 +19,7 @@ import documentProcessingRoutes from "./routes/document-processing";
 import productResolverRoutes from "./routes/product-resolver";
 import classificationLineRoutes from "./routes/classification-lines";
 import productResolutionRoutes from "./routes/product-resolution";
+import supplierSearchRoutes from "./routes/supplier-search";
 import { refreshTtbizlinkCacheBatch } from "./lib/ttbizlink";
 
 const app = new Hono<{ Bindings: Env; Variables: AppVariables }>();
@@ -56,6 +57,7 @@ protectedApi.route("/product-intelligence", productIntelligenceRoutes);
 protectedApi.route("/product-resolver", productResolverRoutes);
 protectedApi.route("/classification-lines", classificationLineRoutes);
 protectedApi.route("/product-resolution", productResolutionRoutes);
+protectedApi.route("/supplier-search", supplierSearchRoutes);
 protectedApi.route("/document-processing", documentProcessingRoutes);
 
 app.route("/api", protectedApi);

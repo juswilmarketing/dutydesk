@@ -2,7 +2,10 @@ import type { LineItem } from "@pas/shared-types";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/cn";
 import {
+  activeSuggestionCandidate,
   confidencePct,
+  isLineApplied,
+  mapRecommendationToLineStatus,
   shortDescription,
 } from "./classification-helpers";
 
@@ -16,17 +19,19 @@ type Props = {
 };
 
 function normalizeStatus(item: LineItem): string {
-  if (item.classification_status) return item.classification_status;
-  if (item.classification_recommendation?.recommendations?.length
-    || item.classification_recommendation?.recommendedCandidate) {
-    return "Suggestion Ready";
+  if (isLineApplied(item)) return item.classification_status || "Applied";
+  if (item.classification_recommendation) {
+    // Prefer live recommendation status so queue matches the centre card
+    return mapRecommendationToLineStatus(item.classification_recommendation.status);
   }
+  if (item.classification_status) return item.classification_status;
   return "Generating Suggestions";
 }
 
 function statusTone(status: string): "green" | "blue" | "gold" {
   if (status === "Applied" || status === "AI Applied" || status === "Clerk Edited") return "green";
   if (status === "Suggestion Ready" || status === "Recommendation Ready") return "blue";
+  if (status === "Provisional Suggestion" || status === "More Information Needed") return "gold";
   return "gold";
 }
 
@@ -63,9 +68,9 @@ export function LineQueuePanel({
       <div className="dd-class-queue-list">
         {ordered.map((it) => {
           const idx = items.findIndex((entry) => entry.id === it.id);
+          const preferred = activeSuggestionCandidate(it);
           const pct = confidencePct(
-            it.classification_recommendation?.recommendations?.[0]?.confidence
-            ?? it.classification_recommendation?.recommendedCandidate?.confidence
+            preferred?.confidence
             ?? it.evidence_resolution?.confidence
             ?? it.product_resolution?.confidence
             ?? it.match_confidence
@@ -78,10 +83,8 @@ export function LineQueuePanel({
             || it.evidence_resolution?.resolvedProduct?.canonicalName
             || it.product_resolution?.selected?.canonicalName;
           const productStatus = normalizeStatus(it);
-          const preferredCode =
-            it.tariff_code
-            || it.classification_recommendation?.recommendations?.[0]?.code
-            || it.classification_recommendation?.recommendedCandidate?.code;
+          // Same source as the provisional / best-match card — never a stale tariff_code
+          const preferredCode = preferred?.code || null;
           const active = it.id === activeId;
           return (
             <button

@@ -1,9 +1,8 @@
 import type { TariffEntry } from "@pas/shared-types";
-import tariffJson from "../data/tariff.json";
+import { getTariffCount, getTariffRows, TT_TARIFF, type TariffRow } from "./rows";
 
-export type TariffRow = { code: string; desc: string; duty: string };
-
-const TT_TARIFF: TariffRow[] = tariffJson as TariffRow[];
+export type { TariffRow };
+export { getTariffCount, getTariffRows, TT_TARIFF };
 
 /** Controlled synonyms expanded during retrieval (bidirectional). */
 const SYNONYM_GROUPS: string[][] = [
@@ -19,14 +18,6 @@ for (const group of SYNONYM_GROUPS) {
   for (const term of group) {
     SYNONYM_MAP.set(term, group);
   }
-}
-
-export function getTariffCount(): number {
-  return TT_TARIFF.length;
-}
-
-export function getTariffRows(): readonly TariffRow[] {
-  return TT_TARIFF;
 }
 
 export function catFromCode(code: string): string {
@@ -248,5 +239,3 @@ export function bestMatch(desc: string, learned?: LearnedLookup | null): TariffE
   const results = searchTariff(desc, 1);
   return results[0] || null;
 }
-
-export { TT_TARIFF };

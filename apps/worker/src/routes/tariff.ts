@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import type { Env, AppVariables } from "../env";
-import { searchTariff } from "@pas/tariff-data";
+import { searchTariff, buildTariffHealthReport } from "@pas/tariff-data";
+import { classifyHierarchically } from "@pas/product-intelligence";
 import { audit } from "../lib/utils";
 import { refreshTtbizlinkCacheBatch } from "../lib/ttbizlink";
 
@@ -28,6 +29,34 @@ tariff.get("/search", async (c) => {
   const results = cached.results?.length ? cached.results : searchTariff(q, limit);
   await audit(c, "tariff_search");
   return c.json({ results, source: cached.results?.length ? "local_ttbizlink_cache" : "bundled_snapshot" });
+});
+
+tariff.get("/health", async (c) => {
+  if (c.var.role !== "admin") return c.json({ error: "Admin access required" }, 403);
+  const report = buildTariffHealthReport();
+  return c.json(report);
+});
+
+tariff.post("/classify-debug", async (c) => {
+  if (c.var.role !== "admin") return c.json({ error: "Admin access required" }, 403);
+  const body = await c.req.json<{
+    description?: string;
+    clarificationAnswer?: { id: string; value: string } | null;
+  }>();
+  const description = (body.description || "").trim();
+  if (description.length < 2) return c.json({ error: "description required" }, 400);
+  const result = classifyHierarchically(description, body.clarificationAnswer || null);
+  await audit(c, "classification_debug");
+  return c.json({
+    rawDescription: description,
+    profile: result.profile,
+    chapters: result.chapters,
+    candidates: result.candidates,
+    recommendationStatus: result.recommendationStatus,
+    criticalQuestion: result.criticalQuestion,
+    warnings: result.warnings,
+    retrievalTrace: result.retrievalTrace,
+  });
 });
 
 tariff.get("/cache-status", async (c) => {

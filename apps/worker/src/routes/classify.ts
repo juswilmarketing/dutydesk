@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import type { Env, AppVariables } from "../env";
 import { anthropicMessages } from "../lib/anthropic";
+import { extractJsonFromModelText } from "../lib/extract-json";
 import { audit } from "../lib/utils";
 import { compactLiquidForAi } from "@pas/product-intelligence";
 import { validateCandidatesWithExplanatoryNotes } from "../lib/en-validate";
@@ -129,7 +130,7 @@ classify.post("/", async (c) => {
       [{ role: "user", content: prompt }],
       600,
     );
-    const parsed = JSON.parse(text.replace(/```json|```/g, "").trim()) as {
+    const parsed = extractJsonFromModelText(text) as {
       results?: Array<{
         selected_hs_code?: string;
         suggested_hs_code?: string;
@@ -138,7 +139,19 @@ classify.post("/", async (c) => {
         reason_short?: string;
         requires_review?: boolean;
       }>;
-    };
+    } | null;
+    if (!parsed) {
+      return c.json({
+        tariff_code: candidates[0].hs_code,
+        duty_rate: "—",
+        category: candidates[0].title,
+        notes: "AI returned non-JSON; used top retrieved candidate.",
+        reason_short: "AI returned non-JSON; used top retrieved candidate.",
+        confidence: candidates[0].score,
+        requires_review: true,
+        ai_token_estimate: estimateTokens(prompt),
+      });
+    }
     const r = parsed.results?.[0];
     await audit(c, "classify");
     return c.json({
@@ -193,7 +206,7 @@ classify.post("/batch", async (c) => {
       [{ role: "user", content: prompt }],
       1600,
     );
-    const parsed = JSON.parse(text.replace(/```json|```/g, "").trim()) as {
+    const parsed = extractJsonFromModelText(text) as {
       results?: Array<{
         line_id: number;
         selected_hs_code?: string;
@@ -206,11 +219,11 @@ classify.post("/batch", async (c) => {
         requires_review?: boolean;
         en_validation?: string;
       }>;
-    };
+    } | null;
 
     await audit(c, "classify_batch");
 
-    const byId = new Map((parsed.results ?? []).map((r) => [r.line_id, r]));
+    const byId = new Map((parsed?.results ?? []).map((r) => [r.line_id, r]));
     const results = compact.map((item) => {
       const r = byId.get(item.line_id);
       const fallback = item.heading_candidates![0];

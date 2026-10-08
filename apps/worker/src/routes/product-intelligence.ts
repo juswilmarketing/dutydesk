@@ -532,6 +532,73 @@ admin.delete("/product-dictionary/:id", async (c) => {
   return c.json({ ok: true });
 });
 
+admin.get("/product-family-rules", async (c) => {
+  try {
+    const rows = await c.env.DB.prepare(
+      `SELECT * FROM product_family_rules ORDER BY priority ASC, canonical_product, alias LIMIT 2000`,
+    ).all();
+    return c.json({
+      entries: (rows.results ?? []).map((r: Record<string, unknown>) => ({
+        ...r,
+        likely_chapters: JSON.parse(String(r.likely_chapters || "[]")),
+        likely_headings: JSON.parse(String(r.likely_headings || "[]")),
+        required_attributes: JSON.parse(String(r.required_attributes || "[]")),
+        prohibited_chapters: JSON.parse(String(r.prohibited_chapters || "[]")),
+        active: Number(r.active) === 1,
+      })),
+    });
+  } catch (err) {
+    return c.json({
+      entries: [],
+      error: err instanceof Error ? err.message : "product_family_rules unavailable — apply migration 0020",
+    }, 503);
+  }
+});
+
+admin.post("/product-family-rules", async (c) => {
+  const body = await c.req.json<{
+    canonical_product: string;
+    alias: string;
+    product_family: string;
+    likely_chapters?: string[];
+    likely_headings?: string[];
+    required_attributes?: string[];
+    prohibited_chapters?: string[];
+    priority?: number;
+    notes?: string;
+  }>();
+  if (!body.canonical_product?.trim() || !body.alias?.trim() || !body.product_family?.trim()) {
+    return c.json({ error: "canonical_product, alias, and product_family are required" }, 400);
+  }
+  await c.env.DB.prepare(
+    `INSERT INTO product_family_rules (
+      canonical_product, alias, product_family, likely_chapters, likely_headings,
+      required_attributes, prohibited_chapters, priority, active, notes
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`,
+  )
+    .bind(
+      body.canonical_product.trim(),
+      body.alias.trim().toLowerCase(),
+      body.product_family.trim(),
+      JSON.stringify(body.likely_chapters ?? []),
+      JSON.stringify(body.likely_headings ?? []),
+      JSON.stringify(body.required_attributes ?? []),
+      JSON.stringify(body.prohibited_chapters ?? []),
+      body.priority ?? 100,
+      body.notes ?? null,
+    )
+    .run();
+  await audit(c, "product_family_rule_create");
+  return c.json({ ok: true });
+});
+
+admin.delete("/product-family-rules/:id", async (c) => {
+  await c.env.DB.prepare(`UPDATE product_family_rules SET active = 0, updated_at = datetime('now') WHERE id = ?`)
+    .bind(Number(c.req.param("id")))
+    .run();
+  return c.json({ ok: true });
+});
+
 admin.get("/industry-dictionary", async (c) => {
   const rows = await c.env.DB.prepare(`SELECT * FROM industry_dictionary ORDER BY name`).all();
   return c.json({

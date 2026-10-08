@@ -9,7 +9,21 @@ export const EC75_NOTICE_TEXT =
 export const EC75_LINE = `\n\n${EC75_NOTICE_TEXT}`;
 
 export const STANDARD_EMAIL_BODY =
-  "Please see attached worksheet for approval. Once approved, kindly prepare payment as per tax invoice below.\n\nReview carefully and ensure all attachments are required for the shipment and respond via email so we can process documents.\n\nNB: Customs has implemented an appointment system to clear cargo. This may cause delay in attaining your shipment. We apologize for any inconvenience caused.";
+  "Please see the attached tax advice PDF for approval. Once approved, kindly prepare payment as per tax invoice below.\n\nReview carefully and ensure all attachments are required for the shipment and respond via email so we can process documents.\n\nNB: Customs has implemented an appointment system to clear cargo. This may cause delay in attaining your shipment. We apologize for any inconvenience caused.";
+
+/** True when a share URL is safe to embed in customer email (not workers.dev). */
+export function isCustomerSafeShareUrl(url: string | undefined | null): boolean {
+  const raw = String(url || "").trim();
+  if (!raw) return false;
+  try {
+    const host = new URL(raw).hostname.toLowerCase();
+    if (!host) return false;
+    if (host === "workers.dev" || host.endsWith(".workers.dev")) return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 export function buildDefaultEmailNote(includeEc75: boolean, senderName: string): string {
   return STANDARD_EMAIL_BODY + (includeEc75 ? EC75_LINE : "") + buildEmailSignature(senderName);
@@ -83,18 +97,27 @@ export function buildTaxEmailHtml(
 ): string {
   const signer = senderName.trim() || "Brokerage Team";
   const bodyLines = renderEmailMessageHtml(note, includeEc75);
-  const secureLinkBox = opts?.secureViewUrl
+  const safeViewUrl = isCustomerSafeShareUrl(opts?.secureViewUrl) ? opts!.secureViewUrl!.trim() : "";
+  const safeDownloadUrl = isCustomerSafeShareUrl(opts?.secureDownloadUrl)
+    ? opts!.secureDownloadUrl!.trim()
+    : "";
+  const secureLinkBox = safeViewUrl
     ? '<div style="margin-top:14px;padding:12px 16px;background:#eef5ff;border:1px solid #9cb8e6;border-radius:8px;font-size:13px;line-height:1.6;color:#222;">' +
-      "<strong>Secure tax advice (PDF):</strong><br/>" +
+      "<strong>Backup online copy (PAS Trinidad):</strong><br/>" +
+      '<span style="font-size:12px;color:#444;">The tax advice PDF is also attached to this email. Use this link only if you need an online copy:</span><br/>' +
       '<a href="' +
-      escapeHtml(opts.secureViewUrl) +
-      '" style="color:#1b4f8a;font-weight:700;text-decoration:none;">View online</a>' +
-      (opts.secureDownloadUrl
-        ? ' &nbsp;|&nbsp; <a href="' +
-          escapeHtml(opts.secureDownloadUrl) +
-          '" style="color:#1b4f8a;font-weight:700;text-decoration:none;">Download PDF</a>'
+      escapeHtml(safeViewUrl) +
+      '" style="color:#1b4f8a;font-weight:700;word-break:break-all;">' +
+      escapeHtml(safeViewUrl) +
+      "</a>" +
+      (safeDownloadUrl
+        ? '<br/><a href="' +
+          escapeHtml(safeDownloadUrl) +
+          '" style="color:#1b4f8a;font-weight:700;word-break:break-all;">' +
+          escapeHtml(safeDownloadUrl) +
+          "</a>"
         : "") +
-      '<br/><span style="font-size:11px;color:#555;">Private link for viewing and download. Please review and reply by email to approve.</span></div>'
+      '<br/><span style="font-size:11px;color:#555;">Private PAS Trinidad link. Please review the attached PDF and reply by email to approve.</span></div>'
     : "";
   const msgBox =
     '<div style="font-family:Arial,sans-serif;font-size:14px;color:#222;line-height:1.8;background:#f9f6f2;border-left:5px solid #8B0000;padding:18px 24px;margin-bottom:0;">' +

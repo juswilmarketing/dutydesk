@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { getTariffRows, searchTariff, similarCodes } from "@pas/tariff-data";
+import { getTariffRows, searchTariff, similarCodes, getNationalLine } from "@pas/tariff-data";
 import type {
   ClassificationClarificationQuestion,
   ClassificationInterpretation,
@@ -12,12 +12,22 @@ import type {
   SimpleRecommendationStatus,
   TaxInputs,
 } from "@pas/shared-types";
+import {
+  classifyHierarchically,
+  isNonMerchandiseLine,
+  detectInvoiceLineType,
+  buildProductClassificationProfile,
+} from "@pas/product-intelligence";
+import type { SupplierProductEvidence } from "@pas/shared-types";
 import { calculateTaxes } from "@pas/tax-engine";
 import type { Env, AppVariables } from "../env";
 import { anthropicMessages } from "../lib/anthropic";
+import { loadCommonProductEntriesFromDb } from "../lib/product-family-rules";
+import { extractJsonFromModelText } from "../lib/extract-json";
 import { validateCandidatesWithExplanatoryNotes } from "../lib/en-validate";
 import { audit } from "../lib/utils";
 import { verifyCandidateWithTtbizlink } from "../lib/ttbizlink";
+import { runSupplierProductSearch } from "./supplier-search";
 
 const lines = new Hono<{ Bindings: Env; Variables: AppVariables }>();
 const tariffRows = getTariffRows();
@@ -179,8 +189,21 @@ function packResponse(input: {
   recommendations: ClassificationRecommendationCandidate[];
   question?: ClassificationClarificationQuestion | null;
   warnings?: string[];
+  supplierEvidence?: SupplierProductEvidence | null;
+  supplierSearchStatus?: ClassificationRecommendationResponse["supplierSearchStatus"];
+  supplierSearchNotification?: string | null;
 }): ClassificationRecommendationResponse {
-  const recommendations = input.recommendations.slice(0, 3);
+  const statusIsProvisional =
+    input.status === "provisional" || input.status === "clarification_needed";
+  // Keep candidate.provisional in lockstep with response.status (UI reads both)
+  const recommendations = input.recommendations.slice(0, 3).map((candidate) => ({
+    ...candidate,
+    provisional: statusIsProvisional,
+    confidenceLabel: candidate.confidenceLabel
+      || (statusIsProvisional
+        ? (candidate.confidence != null && candidate.confidence >= 0.6 ? "Likely Match" : "Possible Match")
+        : toConfidenceLabel(candidate.confidence ?? 0.5, false)),
+  }));
   return {
     status: input.status,
     interpretation: input.interpretation,
@@ -193,6 +216,9 @@ function packResponse(input: {
       productFamily: input.interpretation.industry,
       primaryUse: input.interpretation.primaryFunction,
     },
+    supplierEvidence: input.supplierEvidence ?? null,
+    supplierSearchStatus: input.supplierSearchStatus,
+    supplierSearchNotification: input.supplierSearchNotification ?? null,
     recommendedCandidate: recommendations[0] || null,
     alternatives: recommendations.slice(1),
   };
@@ -347,9 +373,38 @@ lines.post("/:lineId/recommendation", async (c) => {
     evidenceIds?: number[];
     productMasterId?: number | null;
     clarificationAnswer?: { id: string; value: string } | null;
+    consignee?: string | null;
+    invoiceNotes?: string | null;
+    forceSupplierSearch?: boolean;
+    applySupplierEvidence?: boolean;
   }>();
   if (!body.originalDescription?.trim()) {
     return c.json({ error: "Original description is required" }, 400);
+  }
+
+  // Gate: never classify freight / surcharge / payment / total rows
+  if (isNonMerchandiseLine(body.originalDescription)) {
+    const typed = detectInvoiceLineType(body.originalDescription);
+    const response = packResponse({
+      status: "unable_to_classify",
+      interpretation: {
+        productName: body.originalDescription.trim().slice(0, 80),
+        productType: typed.lineType,
+        likelyMaterial: "N/A",
+        primaryFunction: "Non-merchandise invoice line",
+        industry: "N/A",
+      },
+      recommendations: [],
+      question: null,
+      warnings: [
+        `Line type "${typed.lineType}" is excluded from tariff classification (${typed.reason}).`,
+      ],
+    });
+    await c.env.DB.prepare(
+      `UPDATE classification_lines
+       SET classification_status = 'Needs Manual Review', updated_at = datetime('now') WHERE line_id = ?`,
+    ).bind(lineId).run();
+    return c.json(response);
   }
 
   const profile: ProductProfile = body.productProfile || {
@@ -417,32 +472,157 @@ lines.post("/:lineId/recommendation", async (c) => {
     lineId,
   ).run();
 
-  const interpretation = buildInterpretation(profile, body.originalDescription);
-  const warnings: string[] = [];
-  let candidates = qualityCandidates((body.headingCandidates || []).slice(0, 5));
-  if (!candidates.length) {
-    candidates = fallbackHeadingCandidates(body.originalDescription, body.predictedChapter);
-    if (candidates.length) {
-      warnings.push("Using tariff catalogue search because product intelligence returned no reliable headings.");
+  // Initial product interpretation (cheap) — used to decide whether supplier search is needed
+  const supplierName = profile.supplier || body.productProfile?.supplier || "";
+  const skuHint = profile.partNumber || profile.model || null;
+  const commonProductEntries = await loadCommonProductEntriesFromDb(c.env.DB);
+  const initialProfile = buildProductClassificationProfile(
+    body.originalDescription,
+    body.clarificationAnswer || null,
+    {
+      supplier: supplierName,
+      consignee: body.consignee || null,
+      invoiceNotes: body.invoiceNotes || null,
+      commonProductEntries,
+    },
+  );
+
+  // Internal supplier/SKU lookup first (no web). External search only when forced or async allow.
+  const supplierSearch = await runSupplierProductSearch(c.env, {
+    supplier: supplierName,
+    sku: skuHint || initialProfile.sku || null,
+    description: body.originalDescription,
+    forceSearch: Boolean(body.forceSupplierSearch),
+    allowExternal: Boolean(body.forceSupplierSearch),
+    profileConfidence: initialProfile.interpretationConfidence,
+    productNoun: initialProfile.productNoun,
+    material: initialProfile.material,
+  });
+
+  const useEvidence =
+    Boolean(supplierSearch.evidence)
+    && (supplierSearch.status === "exact_internal"
+      || supplierSearch.status === "catalogue"
+      || body.applySupplierEvidence
+      || body.forceSupplierSearch);
+
+  // Hierarchical retrieval-grounded classification (AI may only rank retrieved codes)
+  const hierarchical = classifyHierarchically(
+    body.originalDescription,
+    body.clarificationAnswer || null,
+    {
+      supplier: supplierName || null,
+      consignee: body.consignee || null,
+      invoiceNotes: body.invoiceNotes || null,
+      commonProductEntries,
+      productEvidence: useEvidence && supplierSearch.evidence
+        ? {
+            canonicalProduct: supplierSearch.evidence.canonicalProduct,
+            material: supplierSearch.evidence.material,
+            primaryFunction: supplierSearch.evidence.primaryFunction,
+            intendedUse: supplierSearch.evidence.intendedUse,
+            emptyOrFilled: supplierSearch.evidence.emptyOrFilled,
+          }
+        : null,
+    },
+  );
+
+  const skipAiForExactInternal =
+    supplierSearch.status === "exact_internal"
+    && Boolean(supplierSearch.evidence?.technicalSpecifications?.approvedTariff);
+
+  const profileFromEngine: ProductProfile = {
+    ...profile,
+    productName: hierarchical.profile.canonicalProduct || profile.productName,
+    productType: hierarchical.profile.canonicalProduct || profile.productType,
+    normalizedName: hierarchical.profile.normalizedDescription || profile.normalizedName,
+    material: hierarchical.profile.material || profile.material,
+    primaryFunction: hierarchical.profile.primaryFunction || profile.primaryFunction,
+    primaryUse: hierarchical.profile.intendedUse || hierarchical.profile.primaryFunction || profile.primaryUse,
+    productFamily: hierarchical.profile.productFamily || profile.productFamily,
+    industry: hierarchical.profile.industry || profile.industry,
+    brand: hierarchical.profile.brand || profile.brand,
+    partNumber: hierarchical.profile.sku || profile.partNumber,
+    attributes: {
+      ...profile.attributes,
+      classificationProfile: JSON.stringify(hierarchical.profile),
+      predictedChapters: hierarchical.chapters.map((c) => c.chapter).join(","),
+      recommendationStatus: hierarchical.recommendationStatus,
+    },
+  };
+
+  const interpretation: ClassificationInterpretation = {
+    productName: hierarchical.profile.canonicalProduct || body.originalDescription.trim().slice(0, 80),
+    // productType = identified merchandise noun; family lives on profile.productFamily
+    productType: hierarchical.profile.canonicalProduct || hierarchical.profile.productNoun || "Product",
+    likelyMaterial: hierarchical.profile.material || "Unknown",
+    primaryFunction: hierarchical.profile.primaryFunction || "Unknown",
+    industry: hierarchical.profile.productFamily || hierarchical.profile.industry || "General",
+  };
+
+  const warnings = [...hierarchical.warnings];
+  const scored = hierarchical.candidates.filter((c) => Boolean(getNationalLine(c.code)));
+  let candidates: HeadingCandidate[] = scored.map((c) => ({
+    hs_code: c.code,
+    heading: c.heading,
+    title: c.description,
+    score: Math.max(0.2, Math.min(0.98, c.finalScore / 100)),
+    duty_rate: c.duty,
+  }));
+
+  // Never reintroduce incompatible codes when product family is known with confidence.
+  const familyKnown =
+    Boolean(hierarchical.profile.knownAttributes?.hardHeadingGate)
+    || Number(hierarchical.profile.familyConfidence ?? hierarchical.profile.knownAttributes?.productFamilyConfidence ?? 0) >= 0.85
+    || Boolean(hierarchical.profile.knownAttributes?.commonProductFastPath);
+
+  // Legacy / catalogue fallbacks only when family is unknown (avoids showing motors for displays, etc.)
+  if (!candidates.length && !familyKnown) {
+    const legacy = qualityCandidates((body.headingCandidates || []).slice(0, 5));
+    const legacyValid = legacy.filter((h) => Boolean(getNationalLine(h.hs_code) || tariffByCode.get(normalizedCode(h.hs_code))));
+    if (legacyValid.length) {
+      candidates = legacyValid;
+      warnings.push("Fell back to product-intelligence headings; all codes validated against the tariff database.");
     }
+  }
+  if (!candidates.length && !familyKnown) {
+    candidates = fallbackHeadingCandidates(body.originalDescription, hierarchical.chapters[0]?.chapter || body.predictedChapter)
+      .filter((h) => Boolean(getNationalLine(h.hs_code) || tariffByCode.get(normalizedCode(h.hs_code))));
+    if (candidates.length) warnings.push("Used catalogue search fallback with database-validated codes only.");
+  }
+  if (!candidates.length && familyKnown) {
+    warnings.push("No reliable tariff match for the identified product family — refusing unrelated suggestions.");
   }
 
   console.log("[classification]", JSON.stringify({
     lineId,
     description: body.originalDescription,
     interpretation,
-    predictedChapter: body.predictedChapter || null,
+    profile: hierarchical.profile.canonicalProduct,
+    chapters: hierarchical.chapters.map((c) => c.chapter),
+    retrievalTrace: hierarchical.retrievalTrace,
     candidatesRetrieved: candidates.map((entry) => entry.hs_code),
   }));
 
+  const engineQuestion: ClassificationClarificationQuestion | null =
+    hierarchical.criticalQuestion
+      ? {
+          id: hierarchical.criticalQuestion.id,
+          prompt: hierarchical.criticalQuestion.prompt,
+          options: hierarchical.criticalQuestion.options,
+        }
+      : clarificationFor(interpretation);
+
   if (!candidates.length) {
-    const question = clarificationFor(interpretation);
     const response = packResponse({
       status: "unable_to_classify",
       interpretation,
       recommendations: [],
-      question,
-      warnings: ["Not enough context to propose a tariff code. Use manual search or answer the clarification question."],
+      question: engineQuestion,
+      warnings: [
+        ...warnings,
+        "Not enough retrieved tariff evidence to propose a code. Answer the clarification question or use manual search.",
+      ],
     });
     await c.env.DB.prepare(
       `INSERT INTO classification_recommendations
@@ -451,7 +631,10 @@ lines.post("/:lineId/recommendation", async (c) => {
     )
       .bind(
         lineId,
-        JSON.stringify(response.productProfile),
+        JSON.stringify({
+          ...response.productProfile,
+          classificationProfile: hierarchical.profile,
+        }),
         body.resolutionId || null,
         JSON.stringify(body.evidenceIds || []),
         c.var.username,
@@ -459,54 +642,85 @@ lines.post("/:lineId/recommendation", async (c) => {
       .run();
     await c.env.DB.prepare(
       `UPDATE classification_lines
-       SET classification_status = 'Needs Manual Review', updated_at = datetime('now') WHERE line_id = ?`,
+       SET classification_status = 'Needs Manual Review', product_profile_json = ?, updated_at = datetime('now') WHERE line_id = ?`,
     )
-      .bind(lineId)
+      .bind(JSON.stringify(profileFromEngine), lineId)
       .run();
     return c.json(response);
   }
 
-  // Clarification answers that resolve material/function should not force provisional
-  const clarificationResolved =
-    Boolean(body.clarificationAnswer?.value) &&
-    !/^unknown$/i.test(String(body.clarificationAnswer?.value || ""));
-  const provisional = (!body.productProfile?.material
-    || /^unknown$/i.test(String(body.productProfile.material || ""))
-    || !body.headingCandidates?.length)
-    && !clarificationResolved;
+  const provisional =
+    hierarchical.recommendationStatus === "provisional"
+    || hierarchical.recommendationStatus === "insufficient"
+    || hierarchical.profile.missingCriticalAttributes.length > 0;
+
+  let ranked = candidates;
+  let selectedReason =
+    scored[0]?.supportingFacts?.[0]
+    || "Best retrieved tariff match for the product classification profile.";
+  let selectedConfidence = candidates[0]?.score || 0.4;
+
+  const supplierEvidencePayload: SupplierProductEvidence | null = supplierSearch.evidence
+    ? {
+        supplier: supplierSearch.evidence.supplier,
+        supplierSku: supplierSearch.evidence.supplierSku,
+        canonicalProduct: supplierSearch.evidence.canonicalProduct,
+        material: supplierSearch.evidence.material,
+        composition: supplierSearch.evidence.composition,
+        capacity: supplierSearch.evidence.capacity,
+        dimensions: supplierSearch.evidence.dimensions,
+        technicalSpecifications: supplierSearch.evidence.technicalSpecifications,
+        primaryFunction: supplierSearch.evidence.primaryFunction,
+        intendedUse: supplierSearch.evidence.intendedUse,
+        emptyOrFilled: supplierSearch.evidence.emptyOrFilled,
+        sourceUrl: supplierSearch.evidence.sourceUrl,
+        sourceType: supplierSearch.evidence.sourceType,
+        retrievedAt: supplierSearch.evidence.retrievedAt,
+        evidenceConfidence: supplierSearch.evidence.evidenceConfidence,
+        excerpt: supplierSearch.evidence.excerpt,
+      }
+    : null;
 
   try {
-    let ranked = candidates;
-    let selectedReason = "Best available match for the invoice description and product interpretation.";
-    let selectedConfidence = candidates[0]?.score || 0.4;
-    let aiRejectedAll = false;
-
-    if (c.env.ANTHROPIC_API_KEY) {
+    if (c.env.ANTHROPIC_API_KEY && !skipAiForExactInternal) {
       const en = await validateCandidatesWithExplanatoryNotes(
         c.env.DB,
         candidates.slice(0, 3),
         body.originalDescription,
-        body.predictedChapter || null,
+        hierarchical.chapters[0]?.chapter || body.predictedChapter || null,
       );
+      const supplierCtx = supplierSearch.aiContext
+        ? `\nSupplier product evidence (structured, not a tariff code):\n${supplierSearch.aiContext.slice(0, 1500)}\n`
+        : "";
       const prompt = `You are a Trinidad and Tobago customs tariff classification assistant.
-Choose the best code from the supplied candidates ONLY if one actually describes the product.
-If NONE of the candidates fit the product, set selectedCode to null.
-Do not invent a tariff code.
-Return compact JSON only:
-{"selectedCode":null,"confidence":0.0,"reason":"one short sentence","altReasons":{"CODE":"one short sentence"}}
+You may ONLY choose from the supplied candidate codes retrieved from the official tariff database.
+Never invent or recall a tariff code from memory.
+If none fit, set selectedCode to null.
+Empty packaging containers must be classified as the container (e.g. glass bottles under heading 7010), not as their intended food contents.
+Do not use consignee industry (e.g. cocoa company) to override merchandise description.
 
-Product interpretation:
-${JSON.stringify(interpretation)}
+CRITICAL: Reply with a single JSON object only. No prose, no markdown, no explanation outside JSON.
+Required shape:
+{"selectedCode":null,"confidence":0.0,"reason":"one short sentence","altReasons":{"CODE":"one short sentence"},"recommendationStatus":"provisional"}
 
+Product Classification Profile:
+${JSON.stringify(hierarchical.profile)}
+${supplierCtx}
 Original invoice description: ${body.originalDescription.slice(0, 180)}
-Predicted chapter: ${body.predictedChapter || "Unknown"}
 Clarification answer: ${body.clarificationAnswer ? JSON.stringify(body.clarificationAnswer) : "none"}
-Candidates:
+Retrieved candidates (database only):
 ${JSON.stringify(candidates.map((candidate) => ({
   code: candidate.hs_code,
   description: candidate.title,
   score: candidate.score,
   dutyRate: candidate.duty_rate,
+})))}
+Scoring evidence:
+${JSON.stringify(scored.slice(0, 5).map((c) => ({
+  code: c.code,
+  finalScore: c.finalScore,
+  supportingFacts: c.supportingFacts,
+  conflicts: c.conflicts,
 })))}
 Candidate-specific explanatory note evidence:
 ${JSON.stringify(en.excerptsForPrompt)}`;
@@ -514,105 +728,117 @@ ${JSON.stringify(en.excerptsForPrompt)}`;
       const text = await anthropicMessages(
         c.env.ANTHROPIC_API_KEY,
         [{ role: "user", content: prompt }],
-        700,
+        900,
       );
-      const parsed = JSON.parse(text.replace(/```json|```/g, "").trim()) as {
+      const parsedRaw = extractJsonFromModelText(text);
+      const parsed = (parsedRaw && typeof parsedRaw === "object" && !Array.isArray(parsedRaw)
+        ? parsedRaw
+        : null) as {
         selectedCode?: string | null;
         confidence?: number;
         reason?: string;
         altReasons?: Record<string, string>;
-      };
+      } | null;
+
+      if (!parsed) {
+        warnings.push("AI returned non-JSON text; using retrieval ranking only.");
+        console.warn("[classification] invalid_ai_json", {
+          lineId,
+          preview: String(text || "").slice(0, 120),
+        });
+      }
+
       const allowed = new Map(candidates.map((candidate) => [normalizedCode(candidate.hs_code), candidate]));
-      const rawSelected = parsed.selectedCode;
-      const selected =
+      const rawSelected = parsed?.selectedCode;
+      let selected =
         rawSelected == null || String(rawSelected).trim() === "" || /^null$/i.test(String(rawSelected))
           ? null
           : allowed.get(normalizedCode(String(rawSelected))) || null;
 
-      if (!selected) {
-        aiRejectedAll = true;
-        selectedReason = parsed.reason || "None of the retrieved tariff candidates match this product.";
-        const question = clarificationFor(interpretation);
-        const response = packResponse({
-          status: "unable_to_classify",
-          interpretation,
-          recommendations: [],
-          question,
-          warnings: [
-            ...warnings,
-            selectedReason,
-          ],
-        });
-        await c.env.DB.prepare(
-          `INSERT INTO classification_recommendations
-            (line_id, status, product_profile_json, resolution_id, evidence_ids_json, generated_by)
-           VALUES (?, 'unable_to_classify', ?, ?, ?, ?)`,
-        )
-          .bind(
-            lineId,
-            JSON.stringify(response.productProfile),
-            body.resolutionId || null,
-            JSON.stringify(body.evidenceIds || []),
-            c.var.username,
-          )
-          .run();
-        await c.env.DB.prepare(
-          `UPDATE classification_lines
-           SET classification_status = 'Needs Manual Review', updated_at = datetime('now') WHERE line_id = ?`,
-        )
-          .bind(lineId)
-          .run();
-        await audit(c, "classification_recommendation_generated");
-        return c.json(response);
+      // Hard reject invented codes
+      if (rawSelected && !selected) {
+        warnings.push(`AI returned code ${rawSelected} that was not in retrieved candidates — rejected.`);
+        console.warn("[classification] invalid_ai_code", { lineId, rawSelected });
+        selected = null;
       }
 
-      selectedConfidence = Number.isFinite(parsed.confidence)
-        ? Number(parsed.confidence)
-        : selected.score;
-      selectedReason = parsed.reason || selectedReason;
+      // If AI abstains or returns invalid JSON, keep retrieval ranking
+      if (!selected) {
+        selected = candidates[0];
+        selectedReason = parsed?.reason
+          || "Provisional retrieved match — confirm missing attributes before relying on this code.";
+        selectedConfidence = Math.min(selected.score, 0.55);
+      } else {
+        selectedConfidence = Number.isFinite(parsed?.confidence)
+          ? Number(parsed!.confidence)
+          : selected.score;
+        selectedReason = parsed?.reason || selectedReason;
+      }
+
       ranked = [
         selected,
-        ...candidates.filter((candidate) => normalizedCode(candidate.hs_code) !== normalizedCode(selected.hs_code)),
+        ...candidates.filter((candidate) => normalizedCode(candidate.hs_code) !== normalizedCode(selected!.hs_code)),
       ];
-      const altReasons = parsed.altReasons || {};
-      const recommendations = ranked.slice(0, 3).map((candidate, index) =>
-        mapCandidate(
+      const altReasons = parsed?.altReasons || {};
+      const recommendations = ranked.slice(0, 3).map((candidate, index) => {
+        const scoredHit = scored.find((s) => normalizedCode(s.code) === normalizedCode(candidate.hs_code));
+        const reason = index === 0
+          ? selectedReason
+          : altReasons[candidate.hs_code]
+            || altReasons[normalizedCode(candidate.hs_code)]
+            || scoredHit?.supportingFacts?.[0]
+            || "Alternative retrieved tariff candidate.";
+        return mapCandidate(
           candidate,
-          index === 0
-            ? selectedReason
-            : altReasons[candidate.hs_code]
-              || altReasons[normalizedCode(candidate.hs_code)]
-              || "Alternative candidate for the same product interpretation.",
+          reason,
           index === 0 ? selectedConfidence : candidate.score,
-          provisional || selectedConfidence < 0.55,
-        ),
-      );
+          provisional || selectedConfidence < 0.55 || !parsed,
+        );
+      });
+
+      // Final safety: drop any code not in the tariff database
+      const dbSafe = recommendations.filter((r) => Boolean(getNationalLine(r.code) || tariffByCode.get(normalizedCode(r.code))));
+      if (!dbSafe.length) {
+        throw new Error("No database-validated tariff candidates remained after AI ranking.");
+      }
 
       const [verifiedRecommended, ...verifiedAlternatives] = await Promise.all([
-        verifyCandidateWithTtbizlink(c.env.DB, recommendations[0]),
-        ...recommendations.slice(1).map((candidate) => verifyCandidateWithTtbizlink(c.env.DB, candidate)),
+        verifyCandidateWithTtbizlink(c.env.DB, dbSafe[0]),
+        ...dbSafe.slice(1).map((candidate) => verifyCandidateWithTtbizlink(c.env.DB, candidate)),
       ]);
       const verified = [verifiedRecommended, ...verifiedAlternatives].filter(Boolean);
-      const question = clarificationFor(interpretation);
+      const question = engineQuestion;
       const status: SimpleRecommendationStatus = question && provisional
         ? "clarification_needed"
         : provisional || selectedConfidence < 0.55
           ? "provisional"
           : "recommended";
+      if (supplierSearch.notification) warnings.push(supplierSearch.notification);
       const response = packResponse({
         status,
         interpretation,
         recommendations: verified,
         question,
         warnings,
+        supplierEvidence: supplierEvidencePayload,
+        supplierSearchStatus: supplierSearch.status,
+        supplierSearchNotification: supplierSearch.notification || null,
       });
+      response.productProfile = {
+        ...response.productProfile!,
+        identifiedItem: hierarchical.profile.canonicalProduct,
+        material: hierarchical.profile.material || response.productProfile!.material,
+        productFamily: hierarchical.profile.productFamily || response.productProfile!.productFamily,
+        primaryUse: hierarchical.profile.primaryFunction || response.productProfile!.primaryUse,
+      };
 
       console.log("[classification]", JSON.stringify({
         lineId,
         finalRecommendations: verified.map((entry) => entry.code),
         status,
         question: question?.id || null,
-        aiRejectedAll,
+        recommendationStatus: hierarchical.recommendationStatus,
+        supplierSearch: supplierSearch.status,
       }));
 
       await c.env.DB.prepare(
@@ -626,7 +852,13 @@ ${JSON.stringify(en.excerptsForPrompt)}`;
           status,
           JSON.stringify(verified[0] || null),
           JSON.stringify(verified.slice(1)),
-          JSON.stringify(response.productProfile),
+          JSON.stringify({
+            ...response.productProfile,
+            classificationProfile: hierarchical.profile,
+            chapters: hierarchical.chapters,
+            retrievalTrace: hierarchical.retrievalTrace,
+            supplierEvidence: supplierEvidencePayload,
+          }),
           body.resolutionId || null,
           JSON.stringify(body.evidenceIds || []),
           c.var.username,
@@ -634,37 +866,60 @@ ${JSON.stringify(en.excerptsForPrompt)}`;
         .run();
       await c.env.DB.prepare(
         `UPDATE classification_lines
-         SET classification_status = ?, updated_at = datetime('now') WHERE line_id = ?`,
+         SET classification_status = ?, product_profile_json = ?, updated_at = datetime('now') WHERE line_id = ?`,
       )
-        .bind(status === "clarification_needed" ? "More Information Needed" : "Suggestion Ready", lineId)
+        .bind(
+          status === "clarification_needed" ? "More Information Needed" : "Suggestion Ready",
+          JSON.stringify(profileFromEngine),
+          lineId,
+        )
         .run();
       await audit(c, "classification_recommendation_generated");
       return c.json(response);
     }
 
-    // No Anthropic key: still return catalogue-based provisional suggestions.
-    warnings.push("AI ranking unavailable; showing catalogue-based provisional suggestions.");
-    const recommendations = ranked.slice(0, 3).map((candidate, index) =>
-      mapCandidate(
-        candidate,
-        index === 0
-          ? "Provisional catalogue match based on product interpretation."
-          : "Alternative catalogue match for the same description.",
-        candidate.score,
-        true,
-      ),
-    );
+    // No Anthropic key, or exact internal SKU skip: retrieval-based suggestions.
+    if (skipAiForExactInternal) {
+      warnings.push("Resolved from approved supplier/SKU history — AI ranking skipped.");
+    } else {
+      warnings.push("AI ranking unavailable; showing retrieval-based provisional suggestions.");
+    }
+    const recommendations = ranked
+      .slice(0, 3)
+      .filter((candidate) => Boolean(getNationalLine(candidate.hs_code) || tariffByCode.get(normalizedCode(candidate.hs_code))))
+      .map((candidate, index) =>
+        mapCandidate(
+          candidate,
+          index === 0
+            ? selectedReason
+            : scored.find((s) => normalizedCode(s.code) === normalizedCode(candidate.hs_code))?.supportingFacts?.[0]
+              || "Alternative retrieved tariff candidate.",
+          candidate.score,
+          !skipAiForExactInternal,
+        ),
+      );
     const verified = await Promise.all(
       recommendations.map((candidate) => verifyCandidateWithTtbizlink(c.env.DB, candidate)),
     );
-    const question = clarificationFor(interpretation);
+    const question = skipAiForExactInternal ? null : engineQuestion;
+    if (supplierSearch.notification) warnings.push(supplierSearch.notification);
     const response = packResponse({
-      status: question ? "clarification_needed" : "provisional",
+      status: question && provisional ? "clarification_needed" : skipAiForExactInternal ? "recommended" : "provisional",
       interpretation,
       recommendations: verified,
       question,
       warnings,
+      supplierEvidence: supplierEvidencePayload,
+      supplierSearchStatus: supplierSearch.status,
+      supplierSearchNotification: supplierSearch.notification || null,
     });
+    response.productProfile = {
+      ...response.productProfile!,
+      identifiedItem: hierarchical.profile.canonicalProduct,
+      material: hierarchical.profile.material || response.productProfile!.material,
+      productFamily: hierarchical.profile.productFamily || response.productProfile!.productFamily,
+      primaryUse: hierarchical.profile.primaryFunction || response.productProfile!.primaryUse,
+    };
     await c.env.DB.prepare(
       `INSERT INTO classification_recommendations
         (line_id, status, recommended_candidate_json, alternatives_json, product_profile_json,
@@ -676,7 +931,12 @@ ${JSON.stringify(en.excerptsForPrompt)}`;
         response.status,
         JSON.stringify(verified[0] || null),
         JSON.stringify(verified.slice(1)),
-        JSON.stringify(response.productProfile),
+        JSON.stringify({
+          ...response.productProfile,
+          classificationProfile: hierarchical.profile,
+          chapters: hierarchical.chapters,
+          retrievalTrace: hierarchical.retrievalTrace,
+        }),
         body.resolutionId || null,
         JSON.stringify(body.evidenceIds || []),
         c.var.username,
@@ -684,47 +944,56 @@ ${JSON.stringify(en.excerptsForPrompt)}`;
       .run();
     await c.env.DB.prepare(
       `UPDATE classification_lines
-       SET classification_status = ?, updated_at = datetime('now') WHERE line_id = ?`,
+       SET classification_status = ?, product_profile_json = ?, updated_at = datetime('now') WHERE line_id = ?`,
     )
-      .bind(question ? "More Information Needed" : "Suggestion Ready", lineId)
+      .bind(
+        question && provisional ? "More Information Needed" : "Suggestion Ready",
+        JSON.stringify(profileFromEngine),
+        lineId,
+      )
       .run();
     return c.json(response);
   } catch (error) {
-    // On AI failure, only return catalogue fallback when lexical quality is sufficient
-    const fallback = fallbackHeadingCandidates(body.originalDescription, body.predictedChapter)
+    // On AI failure, prefer already-retrieved hierarchical candidates; never invent codes.
+    const recovered = (ranked.length ? ranked : candidates)
       .slice(0, 3)
+      .filter((candidate) => Boolean(getNationalLine(candidate.hs_code) || tariffByCode.get(normalizedCode(candidate.hs_code))))
       .map((candidate, index) =>
         mapCandidate(
           candidate,
           index === 0
-            ? "Provisional suggestion after AI ranking failed."
+            ? "Provisional retrieved match after AI ranking failed."
             : "Alternative provisional suggestion.",
           candidate.score,
           true,
         ),
       );
-    if (fallback.length) {
+    if (recovered.length) {
       const verified = await Promise.all(
-        fallback.map((candidate) => verifyCandidateWithTtbizlink(c.env.DB, candidate)),
+        recovered.map((candidate) => verifyCandidateWithTtbizlink(c.env.DB, candidate)),
       );
-      const question = clarificationFor(interpretation);
+      const question = engineQuestion;
       const response = packResponse({
-        status: "provisional",
+        status: question ? "clarification_needed" : "provisional",
         interpretation,
         recommendations: verified,
         question,
         warnings: [
           ...warnings,
-          error instanceof Error ? error.message : "Classification ranking failed",
+          "AI ranking failed; showing retrieved provisional candidates.",
         ],
       });
       await c.env.DB.prepare(
         `UPDATE classification_lines
-         SET classification_status = 'Suggestion Ready', updated_at = datetime('now') WHERE line_id = ?`,
-      ).bind(lineId).run();
+         SET classification_status = ?, product_profile_json = ?, updated_at = datetime('now') WHERE line_id = ?`,
+      ).bind(
+        question ? "More Information Needed" : "Suggestion Ready",
+        JSON.stringify(profileFromEngine),
+        lineId,
+      ).run();
       return c.json(response);
     }
-    const question = clarificationFor(interpretation);
+    const question = engineQuestion;
     const response = packResponse({
       status: "unable_to_classify",
       interpretation,
@@ -732,8 +1001,7 @@ ${JSON.stringify(en.excerptsForPrompt)}`;
       question,
       warnings: [
         ...warnings,
-        error instanceof Error ? error.message : "Classification ranking failed",
-        "No reliable tariff candidates found for this description.",
+        "Classification ranking failed. No reliable tariff candidates found for this description.",
       ],
     });
     await c.env.DB.prepare(
@@ -780,7 +1048,7 @@ lines.post("/:lineId/apply-recommendation", async (c) => {
   const candidate = await verifyCandidateWithTtbizlink(c.env.DB, body.candidate);
   // Prefer official verification, but do not block Apply when the local catalogue knows the code.
   const code = normalizedCode(candidate.code);
-  const knownTariff = tariffByCode.get(code);
+  const knownTariff = tariffByCode.get(code) || getNationalLine(candidate.code);
   if (
     candidate.officialVerification?.status === "not_found"
     && !knownTariff
@@ -798,12 +1066,15 @@ lines.post("/:lineId/apply-recommendation", async (c) => {
   )
     .bind(lineId)
     .first<{ id: number; resolution_id: number | null }>();
+
+  // Duty/VAT must come from the tariff database for the selected code — never invent rates.
+  const dbDuty = percent(knownTariff?.duty ?? candidate.dutyRate);
   const after = {
     tariff_code: knownTariff?.code || candidate.code,
-    tariff_description: candidate.description || knownTariff?.desc || "",
-    duty_rate: candidate.dutyRate,
-    vat_rate: candidate.vatRate,
-    levy_rate: candidate.levyRate || 0,
+    tariff_description: knownTariff?.desc || candidate.description || "",
+    duty_rate: dbDuty,
+    vat_rate: Number.isFinite(candidate.vatRate) ? candidate.vatRate : 12.5,
+    levy_rate: Number.isFinite(candidate.levyRate) ? candidate.levyRate || 0 : 0,
     classification_status: status,
     recommendation_source: source,
     official_verification: candidate.officialVerification,
@@ -902,80 +1173,110 @@ lines.post("/:lineId/apply-recommendation", async (c) => {
   const updated = await c.env.DB.prepare(`SELECT * FROM classification_lines WHERE line_id = ?`)
     .bind(lineId)
     .first<Record<string, unknown>>();
-  const invoiceId = String(lineRow.invoice_id || "unsaved");
-  const invoiceLines = await c.env.DB.prepare(
-    `SELECT line_id, original_description, tariff_code, quantity, unit_price,
-            duty_rate, vat_rate, levy_rate
-     FROM classification_lines WHERE invoice_id = ?`,
-  )
-    .bind(invoiceId)
-    .all<Record<string, unknown>>();
-  const worksheet = await c.env.DB.prepare(
-    `SELECT tax_inputs_json, item_exemptions_json, exchange_rate
-     FROM classification_worksheets WHERE invoice_id = ?`,
-  )
-    .bind(invoiceId)
-    .first<Record<string, unknown>>();
-  const defaultTaxInputs: TaxInputs = {
-    freight: "",
-    insurance: "",
-    otherCharges: "",
-    exchangeRate: "",
-    containerSize: "none",
-    userFee: false,
-    vatExempt: false,
-    combineAll: false,
+
+  let totals = {
+    goodsValue: 0,
+    cifUSD: 0,
+    cifTTD: 0,
+    duty: 0,
+    vat: 0,
+    levy: 0,
+    containerFee: 0,
+    userFee: 0,
+    totalTaxes: 0,
   };
-  let taxInputs = defaultTaxInputs;
-  let itemExemptions: Record<number, ItemExemptions> = {};
   try {
-    taxInputs = { ...defaultTaxInputs, ...JSON.parse(String(worksheet?.tax_inputs_json || "{}")) };
-  } catch {
-    taxInputs = defaultTaxInputs;
+    const invoiceId = String(lineRow.invoice_id || "unsaved");
+    const invoiceLines = await c.env.DB.prepare(
+      `SELECT line_id, original_description, tariff_code, quantity, unit_price,
+              duty_rate, vat_rate, levy_rate
+       FROM classification_lines WHERE invoice_id = ?`,
+    )
+      .bind(invoiceId)
+      .all<Record<string, unknown>>();
+    const worksheet = await c.env.DB.prepare(
+      `SELECT tax_inputs_json, item_exemptions_json, exchange_rate
+       FROM classification_worksheets WHERE invoice_id = ?`,
+    )
+      .bind(invoiceId)
+      .first<Record<string, unknown>>();
+    const defaultTaxInputs: TaxInputs = {
+      freight: "",
+      insurance: "",
+      otherCharges: "",
+      exchangeRate: "",
+      containerSize: "none",
+      userFee: false,
+      vatExempt: false,
+      combineAll: false,
+    };
+    let taxInputs = defaultTaxInputs;
+    let itemExemptions: Record<number, ItemExemptions> = {};
+    try {
+      taxInputs = { ...defaultTaxInputs, ...JSON.parse(String(worksheet?.tax_inputs_json || "{}")) };
+    } catch {
+      taxInputs = defaultTaxInputs;
+    }
+    try {
+      itemExemptions = JSON.parse(String(worksheet?.item_exemptions_json || "{}"));
+    } catch {
+      itemExemptions = {};
+    }
+    const summary = calculateTaxes(
+      (invoiceLines.results || []).map((line) => ({
+        id: Number(line.line_id),
+        desc: String(line.original_description || ""),
+        tariff_code: (line.tariff_code as string) || null,
+        duty_rate: Number(line.duty_rate || 0) === 0 ? "Free" : `${Number(line.duty_rate)}%`,
+        vat_rate: `${Number(line.vat_rate ?? 12.5)}%`,
+        levy_rate: `${Number(line.levy_rate || 0)}%`,
+        qty: Number(line.quantity || 0),
+        price: Number(line.unit_price || 0),
+      })),
+      taxInputs,
+      Number(worksheet?.exchange_rate || 6.75),
+      itemExemptions,
+    );
+    totals = {
+      goodsValue: summary.invoiceTotal,
+      cifUSD: summary.cifUSD,
+      cifTTD: summary.cifTTD,
+      duty: summary.totalDuty,
+      vat: summary.totalVAT,
+      levy: summary.totalLevy,
+      containerFee: summary.containerFee,
+      userFee: summary.userFee,
+      totalTaxes: summary.grandTotal,
+    };
+    await c.env.DB.prepare(
+      `UPDATE classification_worksheets
+       SET totals_json = ?, updated_by = ?, updated_at = datetime('now')
+       WHERE invoice_id = ?`,
+    )
+      .bind(JSON.stringify(totals), c.var.username, invoiceId)
+      .run();
+  } catch (error) {
+    // Line apply already committed — never fail the response on worksheet totals.
+    console.warn("[classification] worksheet totals after apply failed", error);
   }
-  try {
-    itemExemptions = JSON.parse(String(worksheet?.item_exemptions_json || "{}"));
-  } catch {
-    itemExemptions = {};
-  }
-  const summary = calculateTaxes(
-    (invoiceLines.results || []).map((line) => ({
-      id: Number(line.line_id),
-      desc: String(line.original_description || ""),
-      tariff_code: (line.tariff_code as string) || null,
-      duty_rate: Number(line.duty_rate || 0) === 0 ? "Free" : `${Number(line.duty_rate)}%`,
-      vat_rate: `${Number(line.vat_rate ?? 12.5)}%`,
-      levy_rate: `${Number(line.levy_rate || 0)}%`,
-      qty: Number(line.quantity || 0),
-      price: Number(line.unit_price || 0),
-    })),
-    taxInputs,
-    Number(worksheet?.exchange_rate || 6.75),
-    itemExemptions,
-  );
-  const totals = {
-    goodsValue: summary.invoiceTotal,
-    cifUSD: summary.cifUSD,
-    cifTTD: summary.cifTTD,
-    duty: summary.totalDuty,
-    vat: summary.totalVAT,
-    levy: summary.totalLevy,
-    containerFee: summary.containerFee,
-    userFee: summary.userFee,
-    totalTaxes: summary.grandTotal,
-  };
-  await c.env.DB.prepare(
-    `UPDATE classification_worksheets
-     SET totals_json = ?, updated_by = ?, updated_at = datetime('now')
-     WHERE invoice_id = ?`,
-  )
-    .bind(JSON.stringify(totals), c.var.username, invoiceId)
-    .run();
 
   await audit(c, source === "clerk_edited_ai_recommendation"
     ? "classification_recommendation_edited_applied"
     : "classification_recommendation_applied");
-  return c.json({ success: true, line: updated, candidate, worksheetTotals: totals });
+  const appliedCandidate: ClassificationRecommendationCandidate = {
+    ...candidate,
+    code: after.tariff_code,
+    description: after.tariff_description,
+    dutyRate: after.duty_rate,
+    vatRate: after.vat_rate,
+    levyRate: after.levy_rate,
+  };
+  return c.json({
+    success: true,
+    line: updated,
+    candidate: appliedCandidate,
+    worksheetTotals: totals,
+  });
 });
 
 export default lines;

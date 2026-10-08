@@ -8,12 +8,19 @@ import type {
   ProductResolution,
   ProductResolverCandidate,
 } from "@pas/shared-types";
+import { getTariffRows } from "@pas/tariff-data";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { LineQueuePanel } from "./LineQueuePanel";
 import { ClassificationCentre } from "./ClassificationCentre";
 import { AiAssistantPanel } from "./AiAssistantPanel";
 import { ProductResolverPanel } from "./ProductResolverPanel";
+import {
+  isLineApplied,
+  mapRecommendationToLineStatus,
+  promoteRecommendationCandidate,
+  recommendationCandidates,
+} from "./classification-helpers";
 import { api } from "@/lib/api-client";
 import { useInvoiceStore } from "@/stores/invoice-store";
 import { useWorkflowStore } from "@/stores/workflow-store";
@@ -22,6 +29,7 @@ type Props = {
   items: LineItem[];
   invId: number;
   supplierName?: string;
+  consigneeName?: string;
   shipmentId?: string;
   updatingLine: number | null;
   selectedIds: number[];
@@ -33,6 +41,7 @@ type Props = {
     field: keyof LineItem,
     value: LineItem[keyof LineItem],
   ) => void;
+  patchItem: (invId: number, itemId: number, patch: Partial<LineItem>) => void;
   setLineAnswers: (invId: number, itemId: number, answers: ProductQuestionAnswer[]) => void;
   setLiquidProfile: (invId: number, itemId: number, profile: LiquidProductProfile) => void;
   setProductResolution: (
@@ -61,31 +70,25 @@ type Props = {
 };
 
 function preferredCandidate(item: LineItem): ClassificationRecommendationCandidate | null {
-  const response = item.classification_recommendation;
-  if (!response) return null;
-  return response.recommendations?.[0] || response.recommendedCandidate || null;
+  return recommendationCandidates(item.classification_recommendation)[0] || null;
 }
 
 function mapLineStatus(responseStatus: string | undefined): LineItem["classification_status"] {
-  if (responseStatus === "clarification_needed") return "More Information Needed";
-  if (responseStatus === "unable_to_classify") return "Needs Manual Review";
-  if (responseStatus === "recommended" || responseStatus === "provisional" || responseStatus === "recommendation_ready") {
-    return "Suggestion Ready";
-  }
-  if (responseStatus === "no_reliable_match") return "Needs Manual Review";
-  return "Suggestion Ready";
+  return mapRecommendationToLineStatus(responseStatus);
 }
 
 export function ClassificationWorkspace({
   items,
   invId,
   supplierName,
+  consigneeName,
   shipmentId,
   updatingLine,
   selectedIds,
   setSelectedIds,
   setItemReview,
   editItem,
+  patchItem,
   setLineAnswers,
   setLiquidProfile: _setLiquidProfile,
   setProductResolution,
@@ -165,7 +168,22 @@ export function ClassificationWorkspace({
   ) => {
     setUpdatingLine(target.id);
     setRecommendationErrors((errors) => ({ ...errors, [target.id]: "" }));
-    editItem(invId, target.id, "classification_status", "Generating Suggestions");
+
+    if (target.line_type && target.line_type !== "merchandise") {
+      editItem(invId, target.id, "classification_status", "Needs Manual Review");
+      setRecommendationErrors((errors) => ({
+        ...errors,
+        [target.id]: `This is a ${target.line_type} line — not merchandise. No tariff recommendation.`,
+      }));
+      setUpdatingLine(null);
+      return;
+    }
+
+    // Drop stale suggestion UI immediately so the card cannot lag behind a new run
+    patchItem(invId, target.id, {
+      classification_status: "Generating Suggestions",
+      classification_recommendation: undefined,
+    });
     try {
       let profile = target.product_profile;
       let predictedChapter = target.predictions?.chapter || null;
@@ -231,7 +249,11 @@ export function ClassificationWorkspace({
         originalDescription: target.desc,
         quantity: target.qty,
         unitPrice: target.price,
-        productProfile: profile,
+        productProfile: {
+          ...(profile || analyzedFallbackProfile(target.desc)),
+          supplier: supplierName || profile?.supplier || null,
+          partNumber: target.part_number || profile?.partNumber || null,
+        },
         predictedChapter,
         headingCandidates,
         resolutionId: target.evidence_resolution?.resolutionId,
@@ -240,6 +262,8 @@ export function ClassificationWorkspace({
           .filter((id): id is number => Boolean(id)),
         productMasterId: target.evidence_resolution?.resolvedProduct?.productMasterId,
         clarificationAnswer,
+        consignee: consigneeName || null,
+        applySupplierEvidence: Boolean(target.classification_recommendation?.supplierEvidence),
       });
 
       console.log("[classification-ui] response", {
@@ -249,22 +273,36 @@ export function ClassificationWorkspace({
         question: response.question?.id || null,
       });
 
-      editItem(invId, target.id, "classification_recommendation", response);
-      if (response.interpretation) {
-        const nextProfile = {
-          ...(profile || analyzedFallbackProfile(target.desc)),
-          productName: response.interpretation.productName,
-          productType: response.interpretation.productType,
-          material: response.interpretation.likelyMaterial,
-          primaryUse: response.interpretation.primaryFunction,
-          primaryFunction: response.interpretation.primaryFunction,
-          industry: response.interpretation.industry,
-          productFamily: response.interpretation.industry,
-        };
-        editItem(invId, target.id, "product_profile", nextProfile);
-      }
-      editItem(invId, target.id, "recommendation_evidence", target.evidence_resolution?.evidence || []);
-      editItem(invId, target.id, "classification_status", mapLineStatus(response.status));
+      const top = response.recommendations?.[0] || response.recommendedCandidate || null;
+      // One write so line queue + provisional card never read mixed old/new state
+      patchItem(invId, target.id, {
+        classification_recommendation: response,
+        recommendation_evidence: target.evidence_resolution?.evidence || [],
+        classification_status: mapLineStatus(response.status),
+        // Clear upload-time AI code so the queue follows the provisional suggestion
+        ...(top && !isLineApplied(target)
+          ? {
+              tariff_code: null,
+              tariff_description: null,
+              notes: top.reason || target.notes,
+              match_confidence: top.confidence ?? target.match_confidence,
+            }
+          : {}),
+        ...(response.interpretation
+          ? {
+              product_profile: {
+                ...(profile || analyzedFallbackProfile(target.desc)),
+                productName: response.interpretation.productName,
+                productType: response.interpretation.productType,
+                material: response.interpretation.likelyMaterial,
+                primaryUse: response.interpretation.primaryFunction,
+                primaryFunction: response.interpretation.primaryFunction,
+                industry: response.interpretation.industry,
+                productFamily: response.interpretation.industry,
+              },
+            }
+          : {}),
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unable to generate recommendation.";
       setRecommendationErrors((errors) => ({ ...errors, [target.id]: message }));
@@ -272,13 +310,20 @@ export function ClassificationWorkspace({
     } finally {
       setUpdatingLine(null);
     }
-  }, [editItem, invId, setUpdatingLine, supplierName]);
+  }, [editItem, invId, patchItem, setUpdatingLine, supplierName, consigneeName]);
 
   const applyRecommendation = useCallback(async (
     target: LineItem,
-    candidate: ClassificationRecommendationCandidate,
+    candidate: ClassificationRecommendationCandidate | null | undefined,
     edited: boolean,
-  ) => {
+  ): Promise<boolean> => {
+    if (!candidate?.code?.trim()) {
+      setRecommendationErrors((errors) => ({
+        ...errors,
+        [target.id]: "No tariff candidate to apply.",
+      }));
+      return false;
+    }
     const source = edited
       ? "clerk_edited_ai_recommendation" as const
       : "ai_recommendation" as const;
@@ -294,58 +339,128 @@ export function ClassificationWorkspace({
           .filter((id): id is number => Boolean(id)),
         productMasterId: target.evidence_resolution?.resolvedProduct?.productMasterId,
       });
-      candidate = appliedResult.candidate;
-      const dutyRate = candidate.dutyRate === 0 ? "Free" : `${candidate.dutyRate}%`;
-      editItem(invId, target.id, "tariff_code", candidate.code);
-      editItem(invId, target.id, "tariff_description", candidate.description);
-      editItem(invId, target.id, "category", candidate.description);
-      editItem(invId, target.id, "duty_rate", dutyRate);
-      editItem(invId, target.id, "vat_rate", `${candidate.vatRate}%`);
-      editItem(invId, target.id, "levy_rate", `${candidate.levyRate || 0}%`);
-      editItem(invId, target.id, "status", "done");
-      editItem(invId, target.id, "source", edited ? "manual" : "ai");
-      editItem(invId, target.id, "recommendation_source", source);
-      editItem(invId, target.id, "classification_status", "Applied");
-      editItem(invId, target.id, "notes", candidate.reason);
-      editItem(invId, target.id, "requires_clerk_review", false);
-      editItem(invId, target.id, "match_confidence", candidate.confidence ?? target.match_confidence ?? 0);
-      if (target.product_resolution?.selected) {
-        const product = target.product_resolution.selected;
-        await api.confirmProductResolution({
-          canonicalProductId: product.canonicalProductId,
-          canonicalName: product.canonicalName,
-          originalDescription: target.desc,
-          supplier: supplierName,
-          sku: target.part_number || target.model_number,
-          brand: target.product_profile?.brand,
-          productFamily: product.productFamily,
-          typicalMaterials: product.typicalMaterials,
-          typicalChapters: product.typicalChapters,
-          commonUses: product.commonUses,
-          typicalAttributes: product.typicalAttributes,
-          approvedTariff: candidate.code,
-          classificationApproval: true,
-          answers: target.question_answers,
-        });
-      }
-      await saveLearnedPair(target.desc, candidate.code, dutyRate, candidate.description);
-      await persistProductLearning(
-        { ...target, tariff_code: candidate.code, duty_rate: dutyRate },
-        candidate.code,
-        supplierName,
-        String(invId),
+      const applied = appliedResult.candidate || candidate;
+      // Prefer server/database duty for the applied code over any stale client draft rate.
+      const tariffHit = getTariffRows().find(
+        (row) => row.code.replace(/\s/g, "").toUpperCase() === applied.code.replace(/\s/g, "").toUpperCase(),
       );
+      const dutyFromDb = tariffHit
+        ? (tariffHit.duty === "Free" || tariffHit.duty === "Exempt" || tariffHit.duty === "—"
+          ? 0
+          : Number.parseFloat(String(tariffHit.duty).replace("%", "")) || 0)
+        : NaN;
+      const dutyNum = Number.isFinite(Number(appliedResult.candidate?.dutyRate))
+        ? Number(appliedResult.candidate!.dutyRate)
+        : Number.isFinite(dutyFromDb)
+          ? dutyFromDb
+          : Number(applied.dutyRate);
+      const dutyRate = !Number.isFinite(dutyNum) || dutyNum === 0 ? "Free" : `${dutyNum}%`;
+      const vatNum = Number(applied.vatRate);
+      const levyNum = Number(applied.levyRate || 0);
+
+      // Keep provisional/best-match card in sync with the applied (possibly alternative) code
+      const syncedRecommendation = promoteRecommendationCandidate(
+        target.classification_recommendation,
+        {
+          ...applied,
+          code: tariffHit?.code || applied.code,
+          description: tariffHit?.desc || applied.description,
+          provisional: false,
+          confidenceLabel: "Strong Match",
+        },
+      );
+
+      // Commit the applied tariff in one store write — learning must not undo this.
+      patchItem(invId, target.id, {
+        tariff_code: tariffHit?.code || applied.code,
+        tariff_description: tariffHit?.desc || applied.description,
+        category: tariffHit?.desc || applied.description,
+        duty_rate: dutyRate,
+        vat_rate: `${Number.isFinite(vatNum) ? vatNum : 12.5}%`,
+        levy_rate: `${Number.isFinite(levyNum) ? levyNum : 0}%`,
+        status: "done",
+        source: edited ? "manual" : "ai",
+        recommendation_source: source,
+        classification_status: edited ? "Clerk Edited" : "Applied",
+        notes: applied.reason,
+        requires_clerk_review: false,
+        match_confidence: applied.confidence ?? target.match_confidence ?? 0,
+        classification_recommendation: syncedRecommendation,
+      });
       setItemReview((reviews) => ({ ...reviews, [target.id]: "approved" }));
+
+      // Best-effort memory writes — never treat these as apply failures.
+      try {
+        if (target.product_resolution?.selected) {
+          const product = target.product_resolution.selected;
+          await api.confirmProductResolution({
+            canonicalProductId: product.canonicalProductId,
+            canonicalName: product.canonicalName,
+            originalDescription: target.desc,
+            supplier: supplierName,
+            sku: target.part_number || target.model_number,
+            brand: target.product_profile?.brand,
+            productFamily: product.productFamily,
+            typicalMaterials: product.typicalMaterials,
+            typicalChapters: product.typicalChapters,
+            commonUses: product.commonUses,
+            typicalAttributes: product.typicalAttributes,
+            approvedTariff: applied.code,
+            classificationApproval: true,
+            answers: target.question_answers,
+          });
+        }
+      } catch (error) {
+        console.warn("[classification] product confirm after apply failed", error);
+      }
+      try {
+        const evidence = target.classification_recommendation?.supplierEvidence;
+        if (evidence?.canonicalProduct && (supplierName || evidence.supplier)) {
+          await api.approveSupplierEvidence({
+            supplier: evidence.supplier || supplierName || "",
+            sku: evidence.supplierSku || target.part_number || undefined,
+            rawDescription: target.desc,
+            canonicalProduct: evidence.canonicalProduct,
+            material: evidence.material,
+            primaryFunction: evidence.primaryFunction,
+            intendedUse: evidence.intendedUse,
+            technicalSpecifications: evidence.technicalSpecifications,
+            approvedTariff: applied.code,
+            sourceUrl: evidence.sourceUrl,
+            sourceType: evidence.sourceType,
+            emptyOrFilled: evidence.emptyOrFilled,
+            excerpt: evidence.excerpt,
+          });
+        }
+      } catch (error) {
+        console.warn("[classification] supplier evidence approve failed", error);
+      }
+      try {
+        await saveLearnedPair(target.desc, applied.code, dutyRate, applied.description);
+      } catch (error) {
+        console.warn("[classification] learned pair after apply failed", error);
+      }
+      try {
+        await persistProductLearning(
+          { ...target, tariff_code: applied.code, duty_rate: dutyRate },
+          applied.code,
+          supplierName,
+          String(invId),
+        );
+      } catch (error) {
+        console.warn("[classification] product learning after apply failed", error);
+      }
+      return true;
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unable to apply recommendation.";
       setRecommendationErrors((errors) => ({ ...errors, [target.id]: message }));
-      editItem(invId, target.id, "classification_status", "Needs Manual Review");
+      return false;
     } finally {
       setUpdatingLine(null);
     }
   }, [
-    editItem,
     invId,
+    patchItem,
     persistProductLearning,
     saveLearnedPair,
     setItemReview,
@@ -497,10 +612,92 @@ export function ClassificationWorkspace({
               void applyRecommendation(activeItem, candidate, edited)
             }
             onSearchTariff={onNavigateTariffSearch}
+            onUseSupplierEvidence={() => {
+              const evidence = activeItem.classification_recommendation?.supplierEvidence;
+              if (!evidence) return;
+              const profile = {
+                ...(activeItem.product_profile || analyzedFallbackProfile(activeItem.desc)),
+                productName: evidence.canonicalProduct,
+                productType: evidence.canonicalProduct,
+                material: evidence.material || activeItem.product_profile?.material || "Unknown",
+                primaryUse: evidence.intendedUse || evidence.primaryFunction,
+                primaryFunction: evidence.primaryFunction,
+                industry: evidence.intendedUse || "packaging",
+                productFamily: evidence.intendedUse || "packaging",
+                supplier: supplierName || evidence.supplier || null,
+                partNumber: evidence.supplierSku || activeItem.part_number || null,
+              };
+              editItem(invId, activeItem.id, "product_profile", profile);
+              void generateRecommendation(
+                { ...activeItem, product_profile: profile },
+                undefined,
+              );
+            }}
+            onSearchSupplierAgain={() => {
+              void (async () => {
+                setUpdatingLine(activeItem.id);
+                try {
+                  const result = await api.searchSupplierProduct({
+                    supplier: supplierName,
+                    sku: activeItem.part_number || undefined,
+                    description: activeItem.desc,
+                    forceSearch: true,
+                    allowExternal: true,
+                  });
+                  const current = activeItem.classification_recommendation;
+                  editItem(invId, activeItem.id, "classification_recommendation", {
+                    ...(current || {
+                      status: "provisional",
+                      recommendedCandidate: null,
+                      alternatives: [],
+                    }),
+                    supplierEvidence: result.evidence,
+                    supplierSearchStatus: result.status as "external",
+                    supplierSearchNotification: result.notification || null,
+                  });
+                  if (result.evidence) {
+                    await api.generateLineRecommendation(activeItem.id, {
+                      invoiceId: String(invId),
+                      originalDescription: activeItem.desc,
+                      quantity: activeItem.qty,
+                      unitPrice: activeItem.price,
+                      productProfile: {
+                        ...(activeItem.product_profile || analyzedFallbackProfile(activeItem.desc)),
+                        supplier: supplierName || null,
+                        partNumber: activeItem.part_number || null,
+                      },
+                      forceSupplierSearch: true,
+                      applySupplierEvidence: true,
+                      consignee: consigneeName || null,
+                    }).then((response) => {
+                      editItem(invId, activeItem.id, "classification_recommendation", response);
+                      editItem(invId, activeItem.id, "classification_status", mapLineStatus(response.status));
+                    });
+                  }
+                } catch (error) {
+                  const message = error instanceof Error ? error.message : "Supplier search failed.";
+                  setRecommendationErrors((errors) => ({ ...errors, [activeItem.id]: message }));
+                } finally {
+                  setUpdatingLine(null);
+                }
+              })();
+            }}
+            onIgnoreSupplierEvidence={() => {
+              const current = activeItem.classification_recommendation;
+              if (!current) return;
+              editItem(invId, activeItem.id, "classification_recommendation", {
+                ...current,
+                supplierEvidence: null,
+                supplierSearchNotification: null,
+                supplierSearchStatus: "skipped",
+              });
+            }}
             onApplyAndNext={() => {
               const candidate = preferredCandidate(activeItem);
               if (!candidate) return;
-              void applyRecommendation(activeItem, candidate, false).then(() => goNextUnresolved(activeItem.id));
+              void applyRecommendation(activeItem, candidate, false).then((ok) => {
+                if (ok) goNextUnresolved(activeItem.id);
+              });
             }}
             onSkip={() => goNextUnresolved(activeItem.id)}
           />
@@ -652,7 +849,7 @@ export function ClassificationWorkspace({
           }}
         >
           {updatingLine === activeItem.id
-            ? "Generating..."
+            ? (preferredCandidate(activeItem) ? "Applying..." : "Generating...")
             : preferredCandidate(activeItem)
               ? "Apply Recommendation"
               : "Generate Suggestions"}

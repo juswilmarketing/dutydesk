@@ -36,7 +36,13 @@ export function useWorksheetLines({
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 
   const fingerprint = useMemo(
-    () => taxRows.map((r) => `${r.id}:${r.itemCIF.toFixed(2)}`).join("|"),
+    () =>
+      taxRows
+        .map(
+          (r) =>
+            `${r.id}:${r.tariff_code || ""}:${r.duty_rate || ""}:${r.duty.toFixed(2)}:${r.vat.toFixed(2)}:${r.itemCIF.toFixed(2)}`,
+        )
+        .join("|"),
     [taxRows],
   );
 

@@ -103,7 +103,7 @@ export function ManualEntryPage() {
         category: catFromCode(dbMatch.code),
         notes: "Matched from official T&T Customs tariff",
         status: "done",
-        source: dbMatch.learned ? "learned" : "database",
+        source: dbMatch.score === 100 ? "learned" : "database",
       });
       setLoading(false);
       return;

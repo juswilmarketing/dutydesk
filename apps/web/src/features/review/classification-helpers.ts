@@ -1,6 +1,145 @@
-import type { HeadingCandidate, LineItem, ProductQuestion } from "@pas/shared-types";
+import type {
+  ClassificationLineStatus,
+  ClassificationRecommendationCandidate,
+  ClassificationRecommendationResponse,
+  HeadingCandidate,
+  LineItem,
+  ProductQuestion,
+} from "@pas/shared-types";
 import { catFromCode, getTariffRows } from "@pas/tariff-data";
 import { domainTariffConflict, type ProductDomain } from "@pas/product-intelligence";
+
+/** Preferred tariff candidates from the recommendation response (single source of truth). */
+export function recommendationCandidates(
+  response: ClassificationRecommendationResponse | null | undefined,
+): ClassificationRecommendationCandidate[] {
+  if (!response) return [];
+  if (response.recommendations?.length) return response.recommendations.slice(0, 3);
+  const list = [
+    response.recommendedCandidate,
+    ...(response.alternatives || []),
+  ].filter(Boolean) as ClassificationRecommendationCandidate[];
+  return list.slice(0, 3);
+}
+
+export function isProvisionalRecommendation(
+  response: ClassificationRecommendationResponse | null | undefined,
+): boolean {
+  if (!response) return false;
+  if (response.status === "provisional" || response.status === "clarification_needed") return true;
+  const preferred = recommendationCandidates(response)[0];
+  if (!preferred) return false;
+  return Boolean(
+    preferred.provisional
+    || preferred.confidenceLabel === "Possible Match"
+    || preferred.confidenceLabel === "More Information Needed",
+  );
+}
+
+/** Line-queue / centre badge status derived from the recommendation payload. */
+export function mapRecommendationToLineStatus(
+  responseStatus: string | undefined,
+): ClassificationLineStatus {
+  if (responseStatus === "clarification_needed") return "More Information Needed";
+  if (responseStatus === "unable_to_classify" || responseStatus === "no_reliable_match") {
+    return "Needs Manual Review";
+  }
+  if (responseStatus === "provisional") return "Provisional Suggestion";
+  if (
+    responseStatus === "recommended"
+    || responseStatus === "recommendation_ready"
+  ) {
+    return "Suggestion Ready";
+  }
+  return "Suggestion Ready";
+}
+
+export function recommendationCardTitle(
+  response: ClassificationRecommendationResponse | null | undefined,
+): string {
+  if (!response) return "Suggestions";
+  if (response.status === "clarification_needed") return "Provisional suggestion";
+  if (isProvisionalRecommendation(response)) return "Provisional suggestion";
+  return "Best match";
+}
+
+function normalizeHs(code: string | null | undefined): string {
+  return String(code || "").replace(/\s/g, "").toUpperCase();
+}
+
+/** True when a clerk-applied / committed tariff is on the line. */
+export function isLineApplied(item: LineItem): boolean {
+  const status = item.classification_status || "";
+  return status === "Applied" || status === "AI Applied" || status === "Clerk Edited";
+}
+
+/**
+ * Single display candidate for line queue + centre.
+ * Applied lines follow tariff_code; otherwise follow recommendation[0].
+ */
+export function activeSuggestionCandidate(
+  item: LineItem,
+): ClassificationRecommendationCandidate | null {
+  const fromRec = recommendationCandidates(item.classification_recommendation);
+  if (isLineApplied(item) && item.tariff_code) {
+    const match = fromRec.find((c) => normalizeHs(c.code) === normalizeHs(item.tariff_code));
+    if (match) return match;
+    const t = getTariffRows().find(
+      (row) => normalizeHs(row.code) === normalizeHs(item.tariff_code),
+    );
+    return {
+      code: item.tariff_code,
+      description: item.tariff_description || item.category || t?.desc || "",
+      chapter: item.tariff_code.replace(/\D/g, "").slice(0, 2),
+      dutyRate: Number.parseFloat(String(item.duty_rate || "").replace("%", "")) || 0,
+      vatRate: Number.parseFloat(String(item.vat_rate || "12.5").replace("%", "")) || 12.5,
+      levyRate: Number.parseFloat(String(item.levy_rate || "0").replace("%", "")) || 0,
+      reason: item.notes || "Applied classification",
+      source: item.source === "manual" ? "ai" : "ai",
+      confidence: item.match_confidence ?? 1,
+      confidenceLabel: "Strong Match",
+      provisional: false,
+    };
+  }
+  return fromRec[0] || null;
+}
+
+/** Put the chosen candidate first so queue + provisional card stay aligned. */
+export function promoteRecommendationCandidate(
+  response: ClassificationRecommendationResponse | null | undefined,
+  candidate: ClassificationRecommendationCandidate,
+): ClassificationRecommendationResponse {
+  if (!response) {
+    return {
+      status: "recommended",
+      recommendations: [candidate],
+      recommendedCandidate: candidate,
+      alternatives: [],
+    };
+  }
+  const rest = recommendationCandidates(response).filter(
+    (c) => normalizeHs(c.code) !== normalizeHs(candidate.code),
+  );
+  const recommendations = [candidate, ...rest].slice(0, 3);
+  return {
+    ...response,
+    recommendations,
+    recommendedCandidate: candidate,
+    alternatives: recommendations.slice(1),
+  };
+}
+
+export function recommendationFingerprint(
+  response: ClassificationRecommendationResponse | null | undefined,
+): string {
+  if (!response) return "";
+  return [
+    response.status,
+    ...recommendationCandidates(response).map(
+      (c) => `${c.code}:${c.confidence ?? ""}:${c.provisional ? 1 : 0}`,
+    ),
+  ].join("|");
+}
 
 export type ClerkReviewStatus =
   | "confirmed"
@@ -225,8 +364,30 @@ export function buildRankedSuggestions(item: LineItem): RankedSuggestion[] {
     });
   };
 
-  // Primary: current / AI suggested code
-  if (item.tariff_code) {
+  // Primary source of truth: hierarchical / AI recommendation payload (same as Classification Centre)
+  const fromRecommendation = recommendationCandidates(item.classification_recommendation);
+  for (const candidate of fromRecommendation) {
+    if (out.length >= 3) break;
+    const t = lookupTariff(candidate.code);
+    const provisional = Boolean(
+      candidate.provisional
+      || isProvisionalRecommendation(item.classification_recommendation),
+    );
+    push({
+      code: candidate.code,
+      description: candidate.description || t.desc,
+      duty: candidate.dutyRate != null ? `${candidate.dutyRate}%` : t.duty,
+      confidence: candidate.confidence
+        ?? (provisional ? 0.5 : 0.7),
+      source: candidate.source === "product_intelligence" ? "Product Intelligence" : "AI Suggested",
+      reason: candidate.reason || "Retrieved tariff recommendation",
+      supporting,
+      label: provisional && out.length === 0 ? "Low Confidence" : undefined,
+    });
+  }
+
+  // Applied / current code only when no recommendation list yet
+  if (!fromRecommendation.length && item.tariff_code) {
     const t = lookupTariff(item.tariff_code);
     push({
       code: item.tariff_code,
@@ -239,35 +400,39 @@ export function buildRankedSuggestions(item: LineItem): RankedSuggestion[] {
     });
   }
 
-  // Predicted headings (chapter-gated) — max 3 total
-  const headings: HeadingCandidate[] = item.predictions?.headings ?? [];
-  for (const h of headings) {
-    if (out.length >= 3) break;
-    const t = lookupTariff(h.hs_code);
-    push({
-      code: h.hs_code,
-      description: h.title || t.desc,
-      duty: h.duty_rate || t.duty,
-      confidence: h.score,
-      source: "Product Intelligence",
-      reason: `Predicted heading ${h.heading} within chapter ${item.predictions?.chapter || "—"}`,
-      supporting,
-    });
+  // Predicted headings — only fill remaining slots when recommendation list is empty/short
+  if (out.length < 3 && !fromRecommendation.length) {
+    const headings: HeadingCandidate[] = item.predictions?.headings ?? [];
+    for (const h of headings) {
+      if (out.length >= 3) break;
+      const t = lookupTariff(h.hs_code);
+      push({
+        code: h.hs_code,
+        description: h.title || t.desc,
+        duty: h.duty_rate || t.duty,
+        confidence: h.score,
+        source: "Product Intelligence",
+        reason: `Predicted heading ${h.heading} within chapter ${item.predictions?.chapter || "—"}`,
+        supporting,
+      });
+    }
   }
 
   // Competing headings from AI
-  for (const code of item.competing_headings ?? []) {
-    if (out.length >= 3) break;
-    const t = lookupTariff(code);
-    push({
-      code,
-      description: t.desc,
-      duty: t.duty,
-      confidence: 0.5,
-      source: "AI Suggested",
-      reason: "Competing heading considered by AI validation",
-      supporting,
-    });
+  if (!fromRecommendation.length) {
+    for (const code of item.competing_headings ?? []) {
+      if (out.length >= 3) break;
+      const t = lookupTariff(code);
+      push({
+        code,
+        description: t.desc,
+        duty: t.duty,
+        confidence: 0.5,
+        source: "AI Suggested",
+        reason: "Competing heading considered by AI validation",
+        supporting,
+      });
+    }
   }
 
   return out.slice(0, 3);

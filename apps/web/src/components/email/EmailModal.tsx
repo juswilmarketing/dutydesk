@@ -24,6 +24,7 @@ import {
   EC75_LINE,
   EC75_NOTICE_TEXT,
   formatPlainEmailBody,
+  isCustomerSafeShareUrl,
   STANDARD_EMAIL_BODY,
 } from "@/lib/export/tax-email-body";
 import { COMPANY_EMAIL, COMPANY_NAME, COMPANY_SHORT } from "@/lib/company";
@@ -317,9 +318,13 @@ export function EmailModal({ data, currentUserName, onClose, title, subtitle, on
       userFilesPromise,
     ]);
 
+    // Never put workers.dev share URLs in customer email — domain filters block them.
+    const emailViewUrl = isCustomerSafeShareUrl(secureViewUrl) ? secureViewUrl : "";
+    const emailDownloadUrl = isCustomerSafeShareUrl(secureDownloadUrl) ? secureDownloadUrl : "";
+
     const fullEmailHtmlWithLink = buildTaxEmailHtml(data, note, ec75, currentUserName, {
-      secureViewUrl,
-      secureDownloadUrl,
+      secureViewUrl: emailViewUrl || undefined,
+      secureDownloadUrl: emailDownloadUrl || undefined,
     });
 
     const attachmentList: Array<{ filename: string; content: string; mimeType: string }> = [];
@@ -343,15 +348,16 @@ export function EmailModal({ data, currentUserName, onClose, title, subtitle, on
     // Email body stays as HTML in the message — do not attach a duplicate Email Body PDF.
     attachmentList.push(...userFiles);
 
-    const extraLogAttachments: TaxLogAttachment[] = secureViewUrl
-      ? [{ name: "Secure PDF link", type: "link", size: secureViewUrl, auto: true }]
+    const extraLogAttachments: TaxLogAttachment[] = emailViewUrl
+      ? [{ name: "Secure PDF link", type: "link", size: emailViewUrl, auto: true }]
       : [];
 
     return {
       fullEmailHtml: fullEmailHtmlWithLink,
       attachmentList,
-      secureViewUrl,
-      secureDownloadUrl,
+      // WhatsApp / internal: only surface branded share URLs (same filter as email)
+      secureViewUrl: emailViewUrl,
+      secureDownloadUrl: emailDownloadUrl,
       extraLogAttachments,
     };
   };

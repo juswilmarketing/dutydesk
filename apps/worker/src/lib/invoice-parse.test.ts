@@ -45,6 +45,23 @@ describe("invoice-parse", () => {
     expect(sum).toBe(30.01);
   });
 
+  it("allows empty page-range batches without throwing", () => {
+    expect(
+      parseInvoicesFromModelText(
+        JSON.stringify({
+          invoices: [{ invoice_number: "X", items: [], charges: [] }],
+        }),
+        { allowEmpty: true },
+      ),
+    ).toEqual([]);
+  });
+
+  it("does not treat product descriptions containing delivery as freight", () => {
+    expect(isNonProductInvoiceLine("Delivery Charges")).toBe(true);
+    expect(isNonProductInvoiceLine("5 oz Sauce Bottle for sauce delivery")).toBe(false);
+    expect(isNonProductInvoiceLine("Documents")).toBe(true);
+  });
+
   it("moves import surcharge from items into charges", () => {
     const invoices = parseInvoicesFromModelText(
       JSON.stringify({
@@ -71,9 +88,52 @@ describe("invoice-parse", () => {
     );
   });
 
-  it("detects import surcharge as a non-product charge", () => {
-    expect(detectChargeFromDescription("Import Surcharge")?.kind).toBe("other");
-    expect(isNonProductInvoiceLine("Import Surcharge")).toBe(true);
-    expect(isNonProductInvoiceLine("HID FARGO YMCKO Ribbon")).toBe(false);
+  it("harvests invoice totals from total/subtotal rows when top-level fields are missing", () => {
+    const invoices = parseInvoicesFromModelText(
+      JSON.stringify({
+        invoices: [
+          {
+            invoice_number: "TR-1",
+            goods_subtotal: null,
+            invoice_total: null,
+            charges: [],
+            items: [
+              { description: "275/50R19 BS ALNZ SPT AS", qty: 2, unit_price: 317.02, line_total: 634.04 },
+              { description: "FUEL SURCHARGE", qty: 1, unit_price: 12.5, line_total: 12.5 },
+              { description: "SUBTOTAL", qty: 1, unit_price: 634.04, line_total: 634.04 },
+              { description: "TOTAL AMOUNT DUE", qty: 1, unit_price: 646.54, line_total: 646.54 },
+            ],
+          },
+        ],
+      }),
+    );
+    expect(invoices).toHaveLength(1);
+    expect(invoices[0].items.map((i) => i.description)).toEqual(["275/50R19 BS ALNZ SPT AS"]);
+    expect(invoices[0].goods_subtotal).toBe(634.04);
+    expect(invoices[0].invoice_total).toBe(646.54);
+    expect(invoices[0].charges).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ label: "FUEL SURCHARGE", amount: 12.5 }),
+      ]),
+    );
+  });
+
+  it("does not treat TOTAL AMOUNT DUE as a CIF charge", () => {
+    const invoices = parseInvoicesFromModelText(
+      JSON.stringify({
+        invoices: [
+          {
+            invoice_number: "2",
+            items: [
+              { description: "Widget", qty: 1, unit_price: 100, line_total: 100 },
+              { description: "TOTAL AMOUNT DUE", qty: 1, unit_price: 100, line_total: 100 },
+            ],
+          },
+        ],
+      }),
+    );
+    expect(invoices[0].charges).toEqual([]);
+    expect(invoices[0].invoice_total).toBe(100);
+    expect(invoices[0].goods_subtotal).toBe(100);
   });
 });

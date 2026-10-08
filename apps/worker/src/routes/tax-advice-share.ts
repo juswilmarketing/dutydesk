@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import type { Env, AppVariables } from "../env";
 import { authMiddleware } from "../middleware/auth";
 import { randomSessionId } from "../lib/crypto";
+import { buildTaxAdviceShareUrl, resolveShareBaseOrigin } from "../lib/tax-advice-share-url";
 
 const share = new Hono<{ Bindings: Env; Variables: AppVariables }>();
 
@@ -29,9 +30,9 @@ function estimateBase64Bytes(b64: string): number {
   return Math.floor((b64.length * 3) / 4);
 }
 
-function shareUrl(c: { req: { url: string } }, token: string): string {
-  const origin = new URL(c.req.url).origin;
-  return `${origin}/api/tax-advice/share/${token}`;
+function shareUrl(c: { env: Env; req: { url: string } }, token: string): string {
+  const origin = resolveShareBaseOrigin(c.env.TAX_ADVICE_SHARE_BASE_URL, c.req.url);
+  return buildTaxAdviceShareUrl(origin, token);
 }
 
 share.post("/", authMiddleware, async (c) => {

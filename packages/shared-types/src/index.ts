@@ -239,6 +239,7 @@ export interface EvidenceProductResolution {
 export type ClassificationLineStatus =
   | "Generating Suggestions"
   | "Suggestion Ready"
+  | "Provisional Suggestion"
   | "More Information Needed"
   | "Applied"
   | "Needs Manual Review"
@@ -302,6 +303,26 @@ export interface ClassificationClarificationQuestion {
   options: string[];
 }
 
+/** Compact supplier-resolved product identity for clerk review (not a tariff code). */
+export interface SupplierProductEvidence {
+  supplier: string;
+  supplierSku: string;
+  canonicalProduct: string;
+  material: string;
+  composition?: string;
+  capacity?: string;
+  dimensions?: string;
+  technicalSpecifications?: Record<string, string | number | boolean | null>;
+  primaryFunction: string;
+  intendedUse: string;
+  emptyOrFilled?: string;
+  sourceUrl?: string;
+  sourceType: string;
+  retrievedAt?: string;
+  evidenceConfidence: number;
+  excerpt?: string;
+}
+
 export interface ClassificationRecommendationResponse {
   status: SimpleRecommendationStatus | "recommendation_ready" | "no_reliable_match";
   interpretation?: ClassificationInterpretation;
@@ -314,6 +335,10 @@ export interface ClassificationRecommendationResponse {
     productFamily: string;
     primaryUse: string;
   };
+  /** Structured supplier search result for clerk confirmation. */
+  supplierEvidence?: SupplierProductEvidence | null;
+  supplierSearchStatus?: "exact_internal" | "catalogue" | "external" | "not_found" | "skipped" | "pending";
+  supplierSearchNotification?: string | null;
   /** @deprecated Prefer recommendations[0] */
   recommendedCandidate: ClassificationRecommendationCandidate | null;
   /** @deprecated Prefer recommendations.slice(1) */
@@ -668,6 +693,29 @@ export interface LineItem {
   classification_recommendation?: ClassificationRecommendationResponse;
   recommendation_source?: "ai_recommendation" | "clerk_edited_ai_recommendation";
   recommendation_evidence?: ProductEvidenceResult[];
+  /** Invoice line-type gate: only merchandise may be tariff-classified. */
+  line_type?:
+    | "merchandise"
+    | "freight"
+    | "surcharge"
+    | "tax"
+    | "discount"
+    | "payment"
+    | "subtotal"
+    | "total"
+    | "informational"
+    | "unknown";
+  /** Structured extraction summary shown before classification. */
+  extraction?: {
+    cleanDescription?: string;
+    supplierSku?: string;
+    secondarySku?: string;
+    countryOfOrigin?: string;
+    specifications?: Record<string, string | number | boolean | null>;
+    groupingConfidence?: number;
+    groupingWarnings?: string[];
+    needsExtractionReview?: boolean;
+  };
 }
 
 export interface InvoiceMeta {

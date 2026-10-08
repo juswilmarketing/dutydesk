@@ -1,6 +1,10 @@
 export {
   getTariffCount,
   getTariffRows,
+  TT_TARIFF,
+} from "./rows";
+export type { TariffRow } from "./rows";
+export {
   catFromCode,
   searchTariff,
   similarCodes,
@@ -9,9 +13,8 @@ export {
   bestMatch,
   hasTokenMatch,
   scoreTariffDescription,
-  TT_TARIFF,
 } from "./search";
-export type { TariffRow, LearnedLookup } from "./search";
+export type { LearnedLookup } from "./search";
 export {
   normalizeSupplierName,
   extractPartNumbers,
@@ -29,3 +32,32 @@ export type {
   ClassifyCascadeResult,
   ClassifyCascadeInput,
 } from "./supplier-search";
+export {
+  digitsOnly,
+  normalizeTariffCode,
+  parseTariffCode,
+  chapterFromCode,
+  headingFromCode,
+  nationalFromCode,
+} from "./code";
+export type { ParsedTariffCode } from "./code";
+export { CHAPTER_TITLES, chapterTitle } from "./chapter-titles";
+export {
+  getHierarchyIndex,
+  getNationalLine,
+  getChapter,
+  getHeading,
+  getNationalLinesForHeading,
+  getNationalLinesForChapter,
+  listChapters,
+  scoreChapter,
+  searchHeadingsInChapters,
+  searchNationalInHeadings,
+  buildTariffHealthReport,
+} from "./hierarchy";
+export type {
+  TariffChapterNode,
+  TariffHeadingNode,
+  TariffHealthIssue,
+  TariffHealthReport,
+} from "./hierarchy";

@@ -75,6 +75,25 @@ export function ReviewPage() {
     );
   };
 
+  /** Apply multiple line fields in one store update so Apply cannot partially overwrite itself. */
+  const patchItem = (invId: number, itemId: number, patch: Partial<LineItem>) => {
+    setInvoices((p) =>
+      p.map((inv) => {
+        if (inv.id !== invId) return inv;
+        const items = inv.items.map((it) => {
+          if (it.id !== itemId) return it;
+          const next = { ...it, ...patch } as LineItem;
+          if (patch.qty != null || patch.price != null) {
+            next.line_total = Math.round((next.qty || 0) * (next.price || 0) * 100) / 100;
+          }
+          return next;
+        });
+        const updated = { ...inv, items };
+        return { ...updated, meta: { ...updated.meta, totalsMismatch: checkInvoiceTotals(updated).mismatch } };
+      }),
+    );
+  };
+
   const setLineAnswers = (invId: number, itemId: number, answers: ProductQuestionAnswer[]) => {
     setInvoices((p) =>
       p.map((inv) =>
@@ -269,12 +288,14 @@ export function ReviewPage() {
                 items={activeInv.items}
                 invId={invId}
                 supplierName={activeInv.meta.supplier}
+                consigneeName={activeInv.meta.to || undefined}
                 shipmentId={activeInv.meta.sourceJobId}
                 updatingLine={updatingLine}
                 selectedIds={selectedIds}
                 setSelectedIds={setSelectedIds}
                 setItemReview={setItemReview}
                 editItem={editItem}
+                patchItem={patchItem}
                 setLineAnswers={setLineAnswers}
                 setLiquidProfile={setLiquidProfile}
                 setProductResolution={setProductResolution}

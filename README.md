@@ -54,6 +54,28 @@ See [SECURITY.md](./SECURITY.md). **Revoke the legacy Anthropic API key** before
 7. Build web: `npm run build:web`
 8. Deploy: `npm run deploy:worker` → https://dutydesk.<your-subdomain>.workers.dev
 
+### Tax advice share links (email deliverability)
+
+Customer email omits `*.workers.dev` share links (domain security often blocks them). The tax advice **PDF attachment** is the primary delivery path.
+
+To enable branded backup links in email:
+
+1. In Cloudflare, add a custom domain on the Worker customers use, e.g. `advice.pastrinidad.com` → `pas-trinidad-api` or `dutydesk`.
+2. Set the same base URL on **both** workers (plain var or secret):
+
+```bash
+# After DNS is live — do not enable until the host resolves to the Worker
+npx wrangler secret put TAX_ADVICE_SHARE_BASE_URL --name pas-trinidad-api
+# value: https://advice.pastrinidad.com
+npx wrangler secret put TAX_ADVICE_SHARE_BASE_URL --name dutydesk
+```
+
+Or uncomment `TAX_ADVICE_SHARE_BASE_URL` in `wrangler.toml` `[vars]` and redeploy both workers.
+
+3. Send a test tax advice to a filtered mailbox; confirm the link host is `advice.pastrinidad.com` and the PDF attachment still arrives.
+
+Until that var is set, emails send the PDF only (no online link box).
+
 ## Scripts
 
 | Command | Description |

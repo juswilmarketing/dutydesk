@@ -3,8 +3,18 @@ import type {
   ClassificationRecommendationCandidate,
   LineItem,
 } from "@pas/shared-types";
+import { getTariffRows } from "@pas/tariff-data";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  activeSuggestionCandidate,
+  isLineApplied,
+  isProvisionalRecommendation,
+  mapRecommendationToLineStatus,
+  recommendationCandidates,
+  recommendationCardTitle,
+  recommendationFingerprint,
+} from "./classification-helpers";
 
 type ProfileField = "productType" | "material" | "primaryUse" | "productFamily" | "brand";
 
@@ -23,17 +33,13 @@ type Props = {
   onSearchTariff: () => void;
   onApplyAndNext?: () => void;
   onSkip?: () => void;
+  onUseSupplierEvidence?: () => void;
+  onSearchSupplierAgain?: () => void;
+  onIgnoreSupplierEvidence?: () => void;
 };
 
 function preferredList(item: LineItem): ClassificationRecommendationCandidate[] {
-  const response = item.classification_recommendation;
-  if (!response) return [];
-  if (response.recommendations?.length) return response.recommendations.slice(0, 3);
-  const list = [
-    response.recommendedCandidate,
-    ...(response.alternatives || []),
-  ].filter(Boolean) as ClassificationRecommendationCandidate[];
-  return list.slice(0, 3);
+  return recommendationCandidates(item.classification_recommendation);
 }
 
 function confidenceTone(label?: string): "green" | "blue" | "gold" {
@@ -54,25 +60,28 @@ export function ClassificationCentre({
   onSearchTariff,
   onApplyAndNext,
   onSkip,
+  onUseSupplierEvidence,
+  onSearchSupplierAgain,
+  onIgnoreSupplierEvidence,
 }: Props) {
   const recommendation = item.classification_recommendation;
   const candidates = useMemo(() => preferredList(item), [item]);
-  const preferred = candidates[0] || null;
+  const preferred = useMemo(() => activeSuggestionCandidate(item), [item]);
   const interpretation = recommendation?.interpretation;
   const question = recommendation?.question || null;
+  const supplierEvidence = recommendation?.supplierEvidence || null;
   const [showAlternatives, setShowAlternatives] = useState(false);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<ClassificationRecommendationCandidate | null>(preferred);
   const [advancedOpen, setAdvancedOpen] = useState(false);
-  const applied = item.classification_status === "Applied"
-    || item.classification_status === "AI Applied"
-    || item.classification_status === "Clerk Edited";
+  const applied = isLineApplied(item);
+  const recFingerprint = recommendationFingerprint(recommendation);
 
   useEffect(() => {
     setDraft(preferred);
     setEditing(false);
     setShowAlternatives(false);
-  }, [preferred?.code, preferred?.description, item.id]);
+  }, [preferred?.code, preferred?.description, preferred?.reason, recFingerprint, item.tariff_code, item.id]);
 
   useEffect(() => {
     console.log("[classification-ui]", {
@@ -102,13 +111,41 @@ export function ClassificationCentre({
       : null,
   ].filter(Boolean).join(" · ");
 
-  const statusLabel = item.classification_status
-    || (updating ? "Generating Suggestions" : candidates.length ? "Suggestion Ready" : "Generating Suggestions");
+  const provisional = isProvisionalRecommendation(recommendation);
+  const derivedStatus = recommendation
+    ? mapRecommendationToLineStatus(recommendation.status)
+    : null;
+  const statusLabel = applied
+    ? (item.classification_status || "Applied")
+    : derivedStatus
+      || item.classification_status
+      || (updating ? "Generating Suggestions" : candidates.length ? "Suggestion Ready" : "Generating Suggestions");
+  const cardTitle = applied
+    ? "Applied classification"
+    : recommendationCardTitle(recommendation);
 
   const updateDraft = <K extends keyof ClassificationRecommendationCandidate>(
     field: K,
     value: ClassificationRecommendationCandidate[K],
-  ) => setDraft((current) => current ? { ...current, [field]: value } : current);
+  ) => {
+    setDraft((current) => {
+      if (!current) return current;
+      const next = { ...current, [field]: value };
+      if (field === "code" && typeof value === "string") {
+        const hit = getTariffRows().find(
+          (row) => row.code.replace(/\s/g, "").toUpperCase() === value.replace(/\s/g, "").toUpperCase(),
+        );
+        if (hit) {
+          next.description = hit.desc;
+          const dutyNum = hit.duty === "Free" || hit.duty === "Exempt" || hit.duty === "—"
+            ? 0
+            : Number.parseFloat(String(hit.duty).replace("%", "")) || 0;
+          next.dutyRate = dutyNum;
+        }
+      }
+      return next;
+    });
+  };
 
   return (
     <div className="dd-class-centre">
@@ -123,7 +160,7 @@ export function ClassificationCentre({
               {item.desc}
             </div>
           </div>
-          <Badge tone={applied ? "green" : candidates.length ? "blue" : "gold"}>
+          <Badge tone={applied ? "green" : provisional ? "gold" : candidates.length ? "blue" : "gold"}>
             {statusLabel}
           </Badge>
         </div>
@@ -140,6 +177,49 @@ export function ClassificationCentre({
           )}
         </div>
 
+        {item.extraction && (
+          <div className="mt-4 rounded-lg border p-3 text-[12px]" style={{ borderColor: "var(--border)" }}>
+            <div className="text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: "var(--accent)" }}>
+              Extracted line
+            </div>
+            <div className="mt-2 space-y-1">
+              <div><span className="dd-text-muted">Product:</span> {interpretationText}</div>
+              <div><span className="dd-text-muted">Raw description:</span> {item.extraction.cleanDescription || item.desc}</div>
+              {item.extraction.supplierSku && (
+                <div><span className="dd-text-muted">SKU:</span> {item.extraction.supplierSku}</div>
+              )}
+              {item.extraction.countryOfOrigin && (
+                <div><span className="dd-text-muted">Origin:</span> {item.extraction.countryOfOrigin}</div>
+              )}
+              {item.extraction.specifications && Object.keys(item.extraction.specifications).length > 0 && (
+                <div>
+                  <span className="dd-text-muted">Specifications:</span>
+                  <ul className="mt-0.5 list-disc pl-4">
+                    {Object.entries(item.extraction.specifications).map(([key, value]) => (
+                      value == null || value === "" ? null : (
+                        <li key={key}>{key}: {String(value)}</li>
+                      )
+                    ))}
+                  </ul>
+                </div>
+              )}
+              <div><span className="dd-text-muted">Quantity:</span> {item.qty} · <span className="dd-text-muted">Price:</span> {item.price}</div>
+              <div><span className="dd-text-muted">Line type:</span> {item.line_type || "merchandise"}</div>
+            </div>
+            {item.extraction.needsExtractionReview && (
+              <div className="dd-class-warn mt-2 text-[11px]">
+                Product line may have been extracted incorrectly.
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <Button variant="secondary" onClick={onSearchTariff}>Classify Manually</Button>
+                  <Button variant="secondary" onClick={() => onGenerateRecommendation()} disabled={updating}>
+                    Classify Anyway
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {recommendationError && (
           <div className="dd-class-warn mt-3 text-[12px]">
             <strong>Classification failed.</strong> {recommendationError}
@@ -152,6 +232,70 @@ export function ClassificationCentre({
           </div>
         )}
       </section>
+
+      {(supplierEvidence
+        || recommendation?.supplierSearchNotification
+        || /packaging|bottle|container/i.test(interpretationText)
+        || recommendation?.supplierSearchStatus === "pending"
+        || recommendation?.supplierSearchStatus === "not_found") && (
+        <section className="dd-class-card">
+          <div className="text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: "var(--accent)" }}>
+            Supplier Evidence
+          </div>
+          {recommendation?.supplierSearchNotification && (
+            <div className="mt-2 text-[12px]" style={{ color: "var(--text)" }}>
+              {recommendation.supplierSearchNotification}
+            </div>
+          )}
+          {supplierEvidence ? (
+            <div className="mt-2 space-y-1 text-[12px]">
+              <div><span className="dd-text-muted">Supplier:</span> {supplierEvidence.supplier || "—"}</div>
+              <div><span className="dd-text-muted">SKU:</span> {supplierEvidence.supplierSku || item.part_number || "—"}</div>
+              <div>
+                <span className="dd-text-muted">Supplier search result:</span>{" "}
+                {supplierEvidence.excerpt || supplierEvidence.canonicalProduct}
+              </div>
+              <div>
+                <span className="dd-text-muted">Resolved product:</span>{" "}
+                <strong>{supplierEvidence.canonicalProduct}</strong>
+              </div>
+              <div>
+                <span className="dd-text-muted">Evidence:</span>{" "}
+                {supplierEvidence.sourceType.replace(/_/g, " ")}
+                {supplierEvidence.material ? ` · ${supplierEvidence.material}` : ""}
+                {supplierEvidence.emptyOrFilled ? ` · ${supplierEvidence.emptyOrFilled}` : ""}
+              </div>
+            </div>
+          ) : (
+            <div className="mt-2 text-[12px] dd-text-muted">
+              No supplier product match yet. Search the supplier catalogue or website when the description is ambiguous.
+            </div>
+          )}
+          <div className="mt-3 flex flex-wrap gap-2">
+            {supplierEvidence && onUseSupplierEvidence && (
+              <Button onClick={onUseSupplierEvidence} disabled={updating}>Use This Product</Button>
+            )}
+            {supplierEvidence?.sourceUrl && (
+              <Button
+                variant="secondary"
+                onClick={() => window.open(supplierEvidence.sourceUrl, "_blank", "noopener,noreferrer")}
+              >
+                View Source
+              </Button>
+            )}
+            {onSearchSupplierAgain && (
+              <Button variant="secondary" onClick={onSearchSupplierAgain} disabled={updating}>
+                {supplierEvidence ? "Search Again" : "Search Supplier"}
+              </Button>
+            )}
+            {supplierEvidence && onIgnoreSupplierEvidence && (
+              <Button variant="secondary" onClick={onIgnoreSupplierEvidence} disabled={updating}>
+                Ignore
+              </Button>
+            )}
+          </div>
+        </section>
+      )}
 
       {updating && !preferred ? (
         <section className="dd-class-card">
@@ -177,12 +321,28 @@ export function ClassificationCentre({
 
       {preferred && draft ? (
         <section className="dd-class-card dd-recommendation-card">
+          {(item.product_profile?.productType || item.product_profile?.productFamily) && (
+            <div className="mb-3 rounded-lg px-3 py-2 text-[12px]" style={{ background: "var(--surface2)" }}>
+              <div className="text-[10px] font-bold uppercase tracking-[0.12em]" style={{ color: "var(--accent)" }}>
+                Product match
+              </div>
+              <div className="mt-0.5 font-semibold" style={{ color: "var(--text)" }}>
+                {item.product_profile?.productType || item.product_profile?.productName || "Product"}
+              </div>
+              {item.product_profile?.productFamily && (
+                <div className="mt-0.5 dd-text-muted">
+                  Product family: {item.product_profile.productFamily}
+                  {preferred.code?.replace(/\D/g, "").slice(0, 4)
+                    ? ` · Likely heading: ${preferred.code.replace(/\D/g, "").slice(0, 4)}`
+                    : ""}
+                </div>
+              )}
+            </div>
+          )}
           <div className="flex items-start justify-between gap-2">
             <div>
               <div className="text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: "var(--accent)" }}>
-                {preferred.provisional || recommendation?.status === "provisional" || recommendation?.status === "clarification_needed"
-                  ? "Provisional suggestions"
-                  : "Best match"}
+                {cardTitle}
               </div>
               <div className="mt-1 font-mono text-xl font-bold" style={{ color: "var(--green)" }}>
                 {editing ? (
@@ -268,10 +428,23 @@ export function ClassificationCentre({
               {interpretation?.likelyMaterial && interpretation.likelyMaterial !== "Unknown" && (
                 <li>Material: {interpretation.likelyMaterial}</li>
               )}
+              {interpretation?.primaryFunction && interpretation.primaryFunction !== "Unknown" && (
+                <li>Function: {interpretation.primaryFunction}</li>
+              )}
+              {interpretation?.industry && interpretation.industry !== "General" && (
+                <li>Industry: {interpretation.industry}</li>
+              )}
             </ul>
           </div>
 
-          {(preferred.provisional || preferred.confidenceLabel === "Possible Match" || preferred.confidenceLabel === "More Information Needed") && (
+          {question && (
+            <div className="mt-2 text-[12px]" style={{ color: "var(--text)" }}>
+              <strong>Needs confirmation:</strong>{" "}
+              <span className="dd-text-muted">{question.prompt.replace(/\?$/, "")}</span>
+            </div>
+          )}
+
+          {provisional && (
             <div className="dd-class-warn mt-2 text-[11px]">
               This is a provisional suggestion. Review carefully before applying.
             </div>
@@ -309,8 +482,12 @@ export function ClassificationCentre({
 
           <div className="mt-4 flex flex-wrap gap-2">
             <Button
-              onClick={() => onApplyRecommendation(draft, editing)}
-              disabled={applied && !editing}
+              onClick={() => {
+                const candidate = editing ? draft : preferred;
+                if (!candidate?.code) return;
+                onApplyRecommendation(candidate, editing);
+              }}
+              disabled={(applied && !editing) || !draft?.code}
             >
               {applied && !editing
                 ? "Applied"
@@ -322,21 +499,35 @@ export function ClassificationCentre({
               <Button
                 variant="secondary"
                 onClick={onApplyAndNext}
-                disabled={!preferred || (applied && !editing)}
+                disabled={!preferred?.code || (applied && !editing)}
               >
                 Apply & Next
               </Button>
             )}
             <Button variant="secondary" onClick={() => setEditing((value) => !value)}>
-              {editing ? "Cancel Edit" : "Edit"}
+              {editing ? "Cancel Edit" : "Edit Classification"}
             </Button>
             {candidates.length > 1 && (
               <Button variant="secondary" onClick={() => setShowAlternatives((value) => !value)}>
-                {showAlternatives ? "Hide Alternatives" : "Alternatives"}
+                {showAlternatives ? "Hide Alternatives" : "View Alternatives"}
               </Button>
             )}
             {onSkip && (
               <Button variant="secondary" onClick={onSkip}>Skip</Button>
+            )}
+            <Button variant="secondary" onClick={onSearchTariff}>
+              Search Tariff
+            </Button>
+            {question && (
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  const el = document.getElementById("dd-clarification-question");
+                  el?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+                }}
+              >
+                Answer Question
+              </Button>
             )}
             <Button variant="secondary" onClick={() => onGenerateRecommendation()} disabled={updating}>
               {updating ? "Generating..." : "Regenerate"}
@@ -377,7 +568,7 @@ export function ClassificationCentre({
       ) : null}
 
       {question && (
-        <section className="dd-class-card">
+        <section id="dd-clarification-question" className="dd-class-card">
           <div className="text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: "var(--accent)" }}>
             Answer one question
           </div>

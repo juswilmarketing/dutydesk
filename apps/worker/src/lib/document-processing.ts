@@ -303,19 +303,39 @@ export async function advanceDocumentJob(env: Env, jobId: string): Promise<Docum
     const acc = parseResult(job.result_json);
     const merged = mergeInvoices([acc.invoices]);
     const warnings = acc.warnings;
-    await updateJob(env.DB, jobId, {
-      status: warnings.length ? "completed_with_warnings" : "completed",
-      current_stage: "Completed",
-      pages_completed: pagesTotal,
-      progress_percent: 100,
-      result_json: JSON.stringify({
-        invoices: merged,
-        warnings,
-        pagesProcessed: pagesTotal,
-        lineItemsExtracted: merged.reduce((s, inv) => s + inv.items.length, 0),
-      }),
-      completed_at: new Date().toISOString(),
-    });
+    const lineCount = merged.reduce((s, inv) => s + inv.items.length, 0);
+    if (lineCount === 0) {
+      await updateJob(env.DB, jobId, {
+        status: "failed",
+        error_code: "NO_LINE_ITEMS",
+        error_message:
+          "No merchandise line items were found after scanning all pages. Retry the upload — some PDFs need the original file (not a re-saved copy).",
+        current_stage: "No line items found",
+        pages_completed: pagesTotal,
+        progress_percent: 100,
+        result_json: JSON.stringify({
+          invoices: [],
+          warnings,
+          pagesProcessed: pagesTotal,
+          lineItemsExtracted: 0,
+        }),
+        completed_at: new Date().toISOString(),
+      });
+    } else {
+      await updateJob(env.DB, jobId, {
+        status: warnings.length ? "completed_with_warnings" : "completed",
+        current_stage: "Completed",
+        pages_completed: pagesTotal,
+        progress_percent: 100,
+        result_json: JSON.stringify({
+          invoices: merged,
+          warnings,
+          pagesProcessed: pagesTotal,
+          lineItemsExtracted: lineCount,
+        }),
+        completed_at: new Date().toISOString(),
+      });
+    }
     return (await getJob(env.DB, jobId))!;
   }
 
@@ -357,23 +377,64 @@ export async function advanceDocumentJob(env: Env, jobId: string): Promise<Docum
   try {
     let batchPdfB64: string;
     let mediaType = job.media_type;
-    if (job.media_type.startsWith("image/") || pagesTotal === 1) {
+    const coversFullDocument = fromPage === 1 && toPage >= pagesTotal;
+    /**
+     * pdf-lib copyPages/save corrupts some commercial invoices (text/fonts blank out).
+     * Prefer the original PDF bytes whenever the batch covers the whole file, or for
+     * modest page counts where re-sending the original with a page-range prompt is safer.
+     */
+    const preferOriginalPdf =
+      job.media_type.startsWith("image/")
+      || pagesTotal === 1
+      || coversFullDocument
+      || pagesTotal <= 25;
+
+    if (preferOriginalPdf) {
       batchPdfB64 = uint8ToBase64(new Uint8Array(pdfBytes));
     } else {
-      const sliced = await slicePdfPages(pdfBytes, fromPage, toPage);
-      batchPdfB64 = uint8ToBase64(sliced);
-      mediaType = "application/pdf";
+      try {
+        const sliced = await slicePdfPages(pdfBytes, fromPage, toPage);
+        batchPdfB64 = uint8ToBase64(sliced);
+        mediaType = "application/pdf";
+      } catch {
+        batchPdfB64 = uint8ToBase64(new Uint8Array(pdfBytes));
+      }
     }
 
     const isCommercialInvoice = !job.document_type || job.document_type === "commercial_invoice";
     const prompt = isCommercialInvoice
-      ? `${INVOICE_PROMPT}\n\nThis batch is pages ${fromPage}-${toPage} of a ${pagesTotal}-page scanned document. Extract only what is visible on these pages.`
+      ? `${INVOICE_PROMPT}\n\nThis batch is pages ${fromPage}-${toPage} of a ${pagesTotal}-page document. Extract every merchandise line visible on those pages. If the file contains additional pages, ignore content outside ${fromPage}-${toPage}. Do not claim the pages are blank if any invoice header, table, SKU, amount, or product text is present.`
       : supportingDocumentPrompt(job.document_type, fromPage, toPage, pagesTotal);
-    const text = await anthropicDocument(env.ANTHROPIC_API_KEY, batchPdfB64, mediaType, prompt, 8000);
+    let text = await anthropicDocument(env.ANTHROPIC_API_KEY, batchPdfB64, mediaType, prompt, 8000);
+
+    // If the model thinks pages are blank after a sliced send, retry once with the original PDF.
+    if (
+      !preferOriginalPdf
+      && /blank|no visible text|no readable|empty page/i.test(text)
+      && job.media_type === "application/pdf"
+    ) {
+      batchPdfB64 = uint8ToBase64(new Uint8Array(pdfBytes));
+      text = await anthropicDocument(env.ANTHROPIC_API_KEY, batchPdfB64, "application/pdf", prompt, 8000);
+    }
     const supporting = isCommercialInvoice
       ? { searchableText: "", productReferences: [] as Array<Record<string, string>> }
       : parseSupportingDocumentText(text);
-    const invoices = isCommercialInvoice ? parseInvoicesFromModelText(text) : [];
+    // Page-range batches must tolerate empty merchandise (cover, T&Cs, continuation pages).
+    // Fail only after all pages are merged if nothing was extracted.
+    let invoices: ParsedInvoice[] = [];
+    if (isCommercialInvoice) {
+      try {
+        invoices = parseInvoicesFromModelText(text, { allowEmpty: true });
+      } catch (parseErr) {
+        // Invalid JSON / unreadable AI output — retry this batch rather than aborting the job early
+        const msg = parseErr instanceof Error ? parseErr.message : "Invoice parse failed";
+        if (/no line items/i.test(msg)) {
+          invoices = [];
+        } else {
+          throw parseErr;
+        }
+      }
+    }
     const searchableText = isCommercialInvoice
       ? invoiceSearchableText(invoices) || text
       : supporting.searchableText;
@@ -463,20 +524,41 @@ export async function advanceDocumentJob(env: Env, jobId: string): Promise<Docum
 
     if (toPage >= pagesTotal) {
       const finalMerged = mergeInvoices([merged]);
-      await updateJob(env.DB, jobId, {
-        status: "completed",
-        current_stage: "Completed",
-        pages_completed: pagesTotal,
-        progress_percent: 100,
-        result_json: JSON.stringify({
-          invoices: finalMerged,
-          warnings: nextResult.warnings,
-          pagesProcessed: pagesTotal,
-          documentText: nextResult.documentText,
-          lineItemsExtracted: finalMerged.reduce((s, inv) => s + inv.items.length, 0),
-        }),
-        completed_at: new Date().toISOString(),
-      });
+      const lineCount = finalMerged.reduce((s, inv) => s + inv.items.length, 0);
+      if (lineCount === 0) {
+        await updateJob(env.DB, jobId, {
+          status: "failed",
+          error_code: "NO_LINE_ITEMS",
+          error_message:
+            "No merchandise line items were found after scanning all pages. Retry, or check that the file is a commercial invoice (not a blank/cover-only PDF).",
+          current_stage: "No line items found",
+          pages_completed: pagesTotal,
+          progress_percent: 100,
+          result_json: JSON.stringify({
+            invoices: [],
+            warnings: nextResult.warnings,
+            pagesProcessed: pagesTotal,
+            documentText: nextResult.documentText,
+            lineItemsExtracted: 0,
+          }),
+          completed_at: new Date().toISOString(),
+        });
+      } else {
+        await updateJob(env.DB, jobId, {
+          status: "completed",
+          current_stage: "Completed",
+          pages_completed: pagesTotal,
+          progress_percent: 100,
+          result_json: JSON.stringify({
+            invoices: finalMerged,
+            warnings: nextResult.warnings,
+            pagesProcessed: pagesTotal,
+            documentText: nextResult.documentText,
+            lineItemsExtracted: lineCount,
+          }),
+          completed_at: new Date().toISOString(),
+        });
+      }
     }
 
     return (await getJob(env.DB, jobId))!;
