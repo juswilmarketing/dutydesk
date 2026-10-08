@@ -29,3 +29,9 @@ export function clearLocalSessionData() {
 
   sessionStorage.clear();
 }
+
+/** Clear the current job after it is sent or abandoned, without signing out. */
+export function clearActiveJob() {
+  useInvoiceStore.getState().clearJob();
+  useWorkflowStore.getState().clearJob();
+}

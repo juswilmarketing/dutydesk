@@ -17,6 +17,8 @@ interface InvoiceState {
   setExchangeRate: (rate: ExchangeRate | null) => void;
   toggleExemption: (id: number, field: keyof ItemExemptions) => void;
   resetSession: () => void;
+  /** Clear the active job only; keeps learned map, supplier history and exchange rate. */
+  clearJob: () => void;
 }
 
 export const useInvoiceStore = create<InvoiceState>()(
@@ -71,6 +73,12 @@ export const useInvoiceStore = create<InvoiceState>()(
           learnedMap: {},
           supplierHistory: [],
           exchangeRate: null,
+          itemExemptions: {},
+        }),
+      clearJob: () =>
+        set({
+          invoices: [],
+          activeInvId: null,
           itemExemptions: {},
         }),
     }),

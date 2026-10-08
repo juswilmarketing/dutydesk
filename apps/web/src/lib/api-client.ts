@@ -5,6 +5,7 @@ import type {
   ChapterPredictionRuleEntry,
   ClassifyResult,
   Consignee,
+  DutyDeskJobType,
   ExchangeRate,
   IndustryDictionaryEntry,
   LearnedEntry,
@@ -31,8 +32,9 @@ import type {
   TaxLogEntry,
   TeamUser,
 } from "@pas/shared-types";
+import type { JobState } from "@/lib/job-state";
 
-class ApiError extends Error {
+export class ApiError extends Error {
   constructor(
     message: string,
     public status: number,
@@ -1022,6 +1024,26 @@ export const api = {
       body: JSON.stringify(entry),
     }),
 
+  getCurrentJob: () =>
+    request<{ job: { id: string; state: unknown; updatedAt: string } | null }>("/api/jobs/current"),
+
+  saveCurrentJob: (state: JobState) =>
+    request<{ id: string; updatedAt: string }>("/api/jobs/current", {
+      method: "PUT",
+      body: JSON.stringify({ state }),
+    }),
+
+  markJobSent: (id: string, payload: { jobType: DutyDeskJobType; worksheetNum: string }) =>
+    request<{ ok: boolean; status: string }>(`/api/jobs/${encodeURIComponent(id)}/sent`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+
+  abandonJob: (id: string) =>
+    request<{ ok: boolean; status: string }>(`/api/jobs/${encodeURIComponent(id)}/abandon`, {
+      method: "POST",
+    }),
+
   sendToFlowBoard: (payload: {
     entry: TaxLogEntry & { customerEmail?: string };
     documentType?: "worksheet" | "brokerage_quote" | "tax_quote";
@@ -1142,5 +1164,3 @@ export const api = {
   deleteUser: (id: number) =>
     request<{ ok: boolean }>(`/api/users/${id}`, { method: "DELETE" }),
 };
-
-export { ApiError };

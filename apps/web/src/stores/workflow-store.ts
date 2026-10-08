@@ -33,6 +33,8 @@ interface WorkflowState {
   refreshTaxLog: () => void;
   setTaxLog: (log: TaxLogEntry[]) => void;
   resetSession: () => void;
+  /** Clear the active job only; keeps consignee list and tax log. */
+  clearJob: () => void;
 }
 
 export const useWorkflowStore = create<WorkflowState>()(
@@ -100,6 +102,13 @@ export const useWorkflowStore = create<WorkflowState>()(
           taxLog: [],
         });
       },
+      clearJob: () =>
+        set({
+          activeConsigneeId: null,
+          approvedTaxSheet: null,
+          taxInputs: { ...DEFAULT_TAX_INPUTS },
+          brokerageInputs: defaultBrokerageInputs(),
+        }),
     }),
     {
       name: "dutydesk-workflow-v1",
