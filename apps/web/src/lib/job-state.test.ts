@@ -37,6 +37,8 @@ describe("emptyJobState", () => {
     expect(state.invoices).toEqual([]);
     expect(state.taxInputs).toEqual(taxInputs);
     expect(state.taxInputs).not.toBe(taxInputs);
+    expect(state.brokerageInputs).toEqual(brokerageInputs);
+    expect(state.brokerageInputs).not.toBe(brokerageInputs);
     expect(state.activeConsigneeId).toBeNull();
   });
 });

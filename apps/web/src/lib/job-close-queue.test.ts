@@ -24,6 +24,27 @@ describe("job close queue", () => {
     expect(readPendingCloses(memoryStorage({ [PENDING_JOB_CLOSE_KEY]: "{oops" }))).toEqual([]);
   });
 
+  it("ignores malformed entries and keeps valid pending closes", () => {
+    const validAbandoned = { jobId: "c", status: "abandoned" as const };
+    const validSent = {
+      jobId: "d",
+      status: "sent" as const,
+      jobType: "brokerage_clearance" as const,
+      worksheetNum: "WS-4",
+    };
+    const raw = [
+      null,
+      { jobId: "a", status: "draft" },
+      { jobId: "b", status: "sent", jobType: "other", worksheetNum: "WS" },
+      validAbandoned,
+      validSent,
+    ];
+    expect(readPendingCloses(memoryStorage({ [PENDING_JOB_CLOSE_KEY]: JSON.stringify(raw) }))).toEqual([
+      validAbandoned,
+      validSent,
+    ]);
+  });
+
   it("enqueues and replaces entries with the same job id", () => {
     const storage = memoryStorage();
     enqueuePendingClose(storage, { jobId: "a", status: "abandoned" });
