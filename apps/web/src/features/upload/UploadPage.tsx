@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { DropZone } from "./DropZone";
 import { useInvoiceProcessor } from "@/hooks/useInvoiceProcessor";
 import { useInvoiceStore } from "@/stores/invoice-store";
@@ -47,13 +47,22 @@ export function UploadPage() {
     () => (location.state as UploadLocationState | null)?.jobFinished ?? null,
   );
 
+  const [startingNewJob, setStartingNewJob] = useState(false);
+  const startingNewJobRef = useRef(false);
+
   const handleStartNewJob = async () => {
+    if (startingNewJobRef.current) return;
     if (!window.confirm(START_NEW_JOB_CONFIRM)) return;
+    startingNewJobRef.current = true;
+    setStartingNewJob(true);
     try {
       await finishJob({ status: "abandoned" });
     } catch (err) {
       console.error("[upload] failed to start a new job", err);
       window.alert("Couldn't start a new job. Please try again.");
+    } finally {
+      startingNewJobRef.current = false;
+      setStartingNewJob(false);
     }
   };
 
@@ -157,7 +166,12 @@ export function UploadPage() {
           invoices.length > 0 ? (
             <div className="flex items-center gap-2">
               <Badge tone="green">{invoices.length} loaded</Badge>
-              <Button variant="secondary" className="text-xs" onClick={() => void handleStartNewJob()}>
+              <Button
+                variant="secondary"
+                className="text-xs"
+                disabled={startingNewJob}
+                onClick={() => void handleStartNewJob()}
+              >
                 Start new job
               </Button>
             </div>

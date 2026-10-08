@@ -25,6 +25,7 @@ vi.mock("@/lib/api-client", () => {
     constructor(
       message: string,
       public status: number,
+      public code?: string,
     ) {
       super(message);
       this.name = "ApiError";
@@ -44,6 +45,7 @@ vi.mock("@/lib/api-client", () => {
 const PENDING_KEY = "dutydesk-pending-job-close";
 const TOO_LARGE = "This job is too large to save to the server. It is kept in this browser only.";
 const RETRYING = "Not saved — retrying";
+const CLOSED_ELSEWHERE = "This job was already sent or closed in another tab. The screen has been cleared.";
 
 const invoices = [{ id: 1 }] as unknown as Invoice[];
 const serverState = {
@@ -59,12 +61,14 @@ const serverState = {
 type Sync = typeof import("./job-sync");
 type ApiModule = typeof import("@/lib/api-client");
 type InvoiceModule = typeof import("@/stores/invoice-store");
+type WorkflowModule = typeof import("@/stores/workflow-store");
 type JobSyncStoreModule = typeof import("@/stores/job-sync-store");
 
 let sync: Sync;
 let api: ApiModule["api"];
 let ApiError: ApiModule["ApiError"];
 let useInvoiceStore: InvoiceModule["useInvoiceStore"];
+let useWorkflowStore: WorkflowModule["useWorkflowStore"];
 let useJobSyncStore: JobSyncStoreModule["useJobSyncStore"];
 let stop: (() => void) | null;
 
@@ -92,6 +96,7 @@ beforeEach(async () => {
   sync = await import("./job-sync");
   ({ api, ApiError } = await import("@/lib/api-client"));
   ({ useInvoiceStore } = await import("@/stores/invoice-store"));
+  ({ useWorkflowStore } = await import("@/stores/workflow-store"));
   ({ useJobSyncStore } = await import("@/stores/job-sync-store"));
   vi.mocked(api.getCurrentJob).mockResolvedValue({ job: null });
   vi.mocked(api.saveCurrentJob).mockResolvedValue({ id: "j1", updatedAt: "now" });
@@ -139,7 +144,7 @@ describe("autosave", () => {
   });
 
   it("treats a server 409 like any other failure and retries", async () => {
-    vi.mocked(api.saveCurrentJob).mockRejectedValueOnce(new ApiError("conflict", 409));
+    vi.mocked(api.saveCurrentJob).mockRejectedValueOnce(new ApiError("conflict", 409, "draft_conflict"));
     stop = sync.startJobAutosave();
     loadInvoices();
     await vi.advanceTimersByTimeAsync(1000);
@@ -218,6 +223,100 @@ describe("autosave", () => {
       expect(useInvoiceStore.getState().invoices).toEqual([]);
       expect(api.abandonJob).toHaveBeenCalledWith("j1");
     });
+  });
+});
+
+describe("server job id", () => {
+  it("sends no job id for a brand-new job, then remembers and persists the id the server returns", async () => {
+    stop = sync.startJobAutosave();
+    loadInvoices();
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(api.saveCurrentJob).toHaveBeenLastCalledWith(expect.objectContaining({ invoices }), null);
+    expect(useWorkflowStore.getState().serverJobId).toBe("j1");
+    expect(JSON.parse(memory.map.get("dutydesk-workflow-v1") ?? "{}").state.serverJobId).toBe("j1");
+    useInvoiceStore.setState({ activeInvId: 2 });
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(api.saveCurrentJob).toHaveBeenLastCalledWith(expect.objectContaining({ activeInvId: 2 }), "j1");
+  });
+
+  it("sends the persisted job id of a restored job", async () => {
+    useWorkflowStore.setState({ serverJobId: "restored" });
+    stop = sync.startJobAutosave();
+    loadInvoices();
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(api.saveCurrentJob).toHaveBeenCalledWith(expect.anything(), "restored");
+  });
+
+  it("adopts the id of a hydrated server job", async () => {
+    vi.mocked(api.getCurrentJob).mockResolvedValue({ job: { id: "j7", state: serverState, updatedAt: "now" } });
+    await sync.hydrateJobFromServer();
+    expect(useWorkflowStore.getState().serverJobId).toBe("j7");
+  });
+
+  it("keeps the id that local work already belongs to when hydrating a different server draft", async () => {
+    loadInvoices();
+    useWorkflowStore.setState({ serverJobId: "stale" });
+    vi.mocked(api.getCurrentJob).mockResolvedValue({ job: { id: "j7", state: serverState, updatedAt: "now" } });
+    await sync.hydrateJobFromServer();
+    expect(useWorkflowStore.getState().serverJobId).toBe("stale");
+  });
+
+  it("adopts the server draft id for local work that has none", async () => {
+    loadInvoices();
+    vi.mocked(api.getCurrentJob).mockResolvedValue({ job: { id: "j7", state: serverState, updatedAt: "now" } });
+    await sync.hydrateJobFromServer();
+    expect(useWorkflowStore.getState().serverJobId).toBe("j7");
+  });
+
+  it("is cleared with the job", async () => {
+    stop = sync.startJobAutosave();
+    loadInvoices();
+    await vi.advanceTimersByTimeAsync(1000);
+    await sync.finishJob({ status: "abandoned" });
+    expect(useWorkflowStore.getState().serverJobId).toBeNull();
+  });
+});
+
+describe("saving a job that was closed elsewhere (409 job_closed)", () => {
+  const closed = () => new ApiError("closed", 409, "job_closed");
+
+  it("clears the job, shows the info message and does not retry", async () => {
+    useWorkflowStore.setState({ serverJobId: "stale" });
+    vi.mocked(api.saveCurrentJob).mockRejectedValue(closed());
+    stop = sync.startJobAutosave();
+    loadInvoices();
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(useInvoiceStore.getState().invoices).toEqual([]);
+    expect(useWorkflowStore.getState().serverJobId).toBeNull();
+    expect(useJobSyncStore.getState()).toMatchObject({ saveState: "closed", error: CLOSED_ELSEWHERE });
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(api.saveCurrentJob).toHaveBeenCalledTimes(1);
+  });
+
+  it("forgets the closed job so a later finish does not close it again", async () => {
+    vi.mocked(api.getCurrentJob).mockResolvedValue({ job: { id: "stale", state: serverState, updatedAt: "now" } });
+    await sync.hydrateJobFromServer();
+    vi.mocked(api.saveCurrentJob).mockRejectedValue(closed());
+    stop = sync.startJobAutosave();
+    useInvoiceStore.setState({ activeInvId: 3 });
+    await vi.advanceTimersByTimeAsync(1000);
+    vi.mocked(api.getCurrentJob).mockResolvedValue({ job: null });
+    await sync.finishJob({ status: "abandoned" });
+    expect(api.abandonJob).not.toHaveBeenCalled();
+  });
+
+  it("ignores a job_closed response that arrives after the session was reset", async () => {
+    let rejectSave!: (e: unknown) => void;
+    vi.mocked(api.saveCurrentJob).mockReturnValue(new Promise((_, rej) => (rejectSave = rej)));
+    useWorkflowStore.setState({ serverJobId: "stale" });
+    stop = sync.startJobAutosave();
+    loadInvoices();
+    await vi.advanceTimersByTimeAsync(1000);
+    sync.resetJobSync();
+    rejectSave(closed());
+    await vi.advanceTimersByTimeAsync(0);
+    expect(useInvoiceStore.getState().invoices).toEqual(invoices);
+    expect(useJobSyncStore.getState().saveState).not.toBe("closed");
   });
 });
 

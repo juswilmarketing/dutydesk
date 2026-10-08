@@ -38,6 +38,7 @@ export class ApiError extends Error {
   constructor(
     message: string,
     public status: number,
+    public code?: string,
   ) {
     super(message);
     this.name = "ApiError";
@@ -76,18 +77,24 @@ export async function safeFetchJson<T>(input: RequestInfo | URL, init?: RequestI
 
   if (!response.ok) {
     let message = friendlyHttpError(response.status, rawBody);
+    let code: string | undefined;
     if (contentType.includes("application/json") && rawBody) {
       try {
-        const parsed = JSON.parse(rawBody) as { error?: string | { message?: string }; message?: string };
+        const parsed = JSON.parse(rawBody) as {
+          error?: string | { message?: string };
+          message?: string;
+          code?: unknown;
+        };
         if (typeof parsed.error === "string") message = parsed.error;
         else if (parsed.error && typeof parsed.error === "object" && parsed.error.message) {
           message = parsed.error.message;
         } else if (parsed.message) message = parsed.message;
+        if (typeof parsed.code === "string") code = parsed.code;
       } catch {
         /* keep friendly message */
       }
     }
-    throw new ApiError(`Request failed (${response.status}): ${message.slice(0, 500)}`, response.status);
+    throw new ApiError(`Request failed (${response.status}): ${message.slice(0, 500)}`, response.status, code);
   }
 
   if (!rawBody) return {} as T;
@@ -1027,10 +1034,10 @@ export const api = {
   getCurrentJob: () =>
     request<{ job: { id: string; state: unknown; updatedAt: string } | null }>("/api/jobs/current"),
 
-  saveCurrentJob: (state: JobState) =>
+  saveCurrentJob: (state: JobState, jobId?: string | null) =>
     request<{ id: string; updatedAt: string }>("/api/jobs/current", {
       method: "PUT",
-      body: JSON.stringify({ state }),
+      body: JSON.stringify({ state, jobId: jobId ?? null }),
     }),
 
   markJobSent: (id: string, payload: { jobType: DutyDeskJobType; worksheetNum: string }) =>

@@ -11,6 +11,8 @@ const AUTOSAVE_DELAY_MS = 1000;
 const RETRY_DELAY_MS = 5000;
 const NOT_SAVED_RETRYING = "Not saved — retrying";
 const TOO_LARGE_MESSAGE = "This job is too large to save to the server. It is kept in this browser only.";
+const CLOSED_ELSEWHERE_MESSAGE =
+  "This job was already sent or closed in another tab. The screen has been cleared.";
 
 export const START_NEW_JOB_CONFIRM =
   "Discard this job and start a new one? The current invoice, classifications and tax entries will be cleared.";
@@ -126,14 +128,22 @@ async function saveNow(): Promise<void> {
 
   sync.setSaveState("saving");
   try {
-    const res = await api.saveCurrentJob(state);
+    const res = await api.saveCurrentJob(state, useWorkflowStore.getState().serverJobId);
     if (gen !== generation) return;
     currentJobId = res.id;
+    useWorkflowStore.getState().setServerJobId(res.id);
     useJobSyncStore.getState().setSaveState("saved");
   } catch (err) {
     if (gen !== generation) return;
     if (err instanceof ApiError && err.status === 413) {
       useJobSyncStore.getState().setSaveState("error", TOO_LARGE_MESSAGE);
+      return;
+    }
+    // Another tab or device already sent/closed this job: saving again would reopen it, so drop it here too.
+    if (err instanceof ApiError && err.status === 409 && err.code === "job_closed") {
+      clearActiveJob();
+      currentJobId = null;
+      useJobSyncStore.getState().setSaveState("closed", CLOSED_ELSEWHERE_MESSAGE);
       return;
     }
     useJobSyncStore.getState().setSaveState("error", NOT_SAVED_RETRYING);
@@ -210,8 +220,16 @@ export async function hydrateJobFromServer(): Promise<void> {
   if (gen !== generation) return;
   if (!job || pending.has(job.id)) return;
   currentJobId = job.id;
-  if (hasJobContent(currentState())) return;
-  if (isJobState(job.state)) applyJobState(job.state);
+  const workflow = useWorkflowStore.getState();
+  if (hasJobContent(currentState())) {
+    // Local work that already belongs to a server job keeps that id, so a closed one is rejected on save.
+    if (workflow.serverJobId === null) workflow.setServerJobId(job.id);
+    return;
+  }
+  if (isJobState(job.state)) {
+    applyJobState(job.state);
+    workflow.setServerJobId(job.id);
+  }
 }
 
 /** Close the current job on the server (queued if offline) and clear it from the screen. */

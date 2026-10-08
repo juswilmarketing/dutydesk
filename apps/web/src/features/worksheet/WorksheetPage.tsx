@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { fmtTTD } from "@pas/tax-engine";
 import type { DutyDeskJobStatus, DutyDeskJobType } from "@pas/shared-types";
@@ -78,6 +78,8 @@ export function WorksheetPage() {
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [checklist, setChecklist] = useState<JobAttachmentItem[]>([]);
   const [sending, setSending] = useState(false);
+  const [startingNewJob, setStartingNewJob] = useState(false);
+  const startingNewJobRef = useRef(false);
   const [sendError, setSendError] = useState("");
   const [draftSaved, setDraftSaved] = useState(false);
   const [successEntry, setSuccessEntry] = useState<ReturnType<typeof useWorkflowStore.getState>["taxLog"][0] | null>(null);
@@ -269,13 +271,19 @@ export function WorksheetPage() {
   };
 
   const handleStartNewJob = async () => {
+    if (startingNewJobRef.current || sending) return;
     if (!window.confirm(START_NEW_JOB_CONFIRM)) return;
+    startingNewJobRef.current = true;
+    setStartingNewJob(true);
     try {
       await finishJob({ status: "abandoned" });
     } catch (err) {
       console.error("[worksheet] failed to start a new job", err);
       window.alert("Couldn't start a new job. Please try again.");
       return;
+    } finally {
+      startingNewJobRef.current = false;
+      setStartingNewJob(false);
     }
     navigate("/upload");
   };
@@ -397,7 +405,12 @@ export function WorksheetPage() {
         actions={
           <div className="flex items-center gap-2">
             <DutyDeskJobStatusBadge status={jobStatus} />
-            <Button variant="secondary" className="text-xs" onClick={() => void handleStartNewJob()}>
+            <Button
+              variant="secondary"
+              className="text-xs"
+              disabled={sending || startingNewJob}
+              onClick={() => void handleStartNewJob()}
+            >
               Start new job
             </Button>
           </div>

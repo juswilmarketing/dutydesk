@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-export type JobSaveState = "idle" | "saving" | "saved" | "error";
+export type JobSaveState = "idle" | "saving" | "saved" | "error" | "closed";
 
 interface JobSyncState {
   saveState: JobSaveState;

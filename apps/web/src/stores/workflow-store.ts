@@ -20,6 +20,8 @@ interface WorkflowState {
   brokerageInputs: BrokerageInputs;
   ccBrokerage: boolean;
   taxLog: TaxLogEntry[];
+  /** Server id of the job being edited; a closed id makes the server reject saves instead of reopening it. */
+  serverJobId: string | null;
   setConsignees: (list: Consignee[]) => void;
   addConsignee: (entry: Omit<Consignee, "id">) => void;
   updateConsignee: (id: string, updated: Partial<Consignee>) => void;
@@ -32,6 +34,7 @@ interface WorkflowState {
   toggleCcBrokerage: (val: boolean) => void;
   refreshTaxLog: () => void;
   setTaxLog: (log: TaxLogEntry[]) => void;
+  setServerJobId: (id: string | null) => void;
   resetSession: () => void;
   /** Clear the active job only; keeps consignee list and tax log. */
   clearJob: () => void;
@@ -47,6 +50,7 @@ export const useWorkflowStore = create<WorkflowState>()(
       brokerageInputs: defaultBrokerageInputs(),
       ccBrokerage: true,
       taxLog: loadTaxLog(),
+      serverJobId: null,
       setConsignees: (list) => set({ consignees: list.map((c) => ({ ...c, phone: c.phone || "", email: c.email || "" })) }),
       addConsignee: (entry) => {
         const id = `c_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
@@ -91,6 +95,7 @@ export const useWorkflowStore = create<WorkflowState>()(
         saveTaxLog(log);
         set({ taxLog: log });
       },
+      setServerJobId: (id) => set({ serverJobId: id }),
       resetSession: () => {
         set({
           consignees: [],
@@ -100,6 +105,7 @@ export const useWorkflowStore = create<WorkflowState>()(
           brokerageInputs: defaultBrokerageInputs(),
           ccBrokerage: true,
           taxLog: [],
+          serverJobId: null,
         });
       },
       clearJob: () =>
@@ -108,6 +114,7 @@ export const useWorkflowStore = create<WorkflowState>()(
           approvedTaxSheet: null,
           taxInputs: { ...DEFAULT_TAX_INPUTS },
           brokerageInputs: defaultBrokerageInputs(),
+          serverJobId: null,
         }),
     }),
     {
@@ -118,6 +125,7 @@ export const useWorkflowStore = create<WorkflowState>()(
         taxInputs: s.taxInputs,
         brokerageInputs: s.brokerageInputs,
         ccBrokerage: s.ccBrokerage,
+        serverJobId: s.serverJobId,
       }),
     },
   ),
