@@ -12,7 +12,7 @@ const RETRY_DELAY_MS = 5000;
 const NOT_SAVED_RETRYING = "Not saved — retrying";
 const TOO_LARGE_MESSAGE = "This job is too large to save to the server. It is kept in this browser only.";
 const CLOSED_ELSEWHERE_MESSAGE =
-  "This job was already sent or closed in another tab. The screen has been cleared.";
+  "This job was already sent or closed in another tab or on another device. The screen has been cleared.";
 
 export const START_NEW_JOB_CONFIRM =
   "Discard this job and start a new one? The current invoice, classifications and tax entries will be cleared.";
@@ -242,7 +242,7 @@ export async function finishJob(close: FinishJobInput): Promise<void> {
       timer = null;
     }
     await chain;
-    let jobId = currentJobId;
+    let jobId = currentJobId ?? useWorkflowStore.getState().serverJobId;
     if (!jobId) {
       jobId = (await api.getCurrentJob().catch(() => ({ job: null }))).job?.id ?? null;
     }

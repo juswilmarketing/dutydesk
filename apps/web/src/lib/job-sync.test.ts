@@ -45,7 +45,7 @@ vi.mock("@/lib/api-client", () => {
 const PENDING_KEY = "dutydesk-pending-job-close";
 const TOO_LARGE = "This job is too large to save to the server. It is kept in this browser only.";
 const RETRYING = "Not saved — retrying";
-const CLOSED_ELSEWHERE = "This job was already sent or closed in another tab. The screen has been cleared.";
+const CLOSED_ELSEWHERE = "This job was already sent or closed in another tab or on another device. The screen has been cleared.";
 
 const invoices = [{ id: 1 }] as unknown as Invoice[];
 const serverState = {
@@ -269,6 +269,17 @@ describe("server job id", () => {
     await sync.finishJob({ status: "abandoned" });
     expect(api.abandonJob).toHaveBeenCalledWith("stale");
     expect(api.abandonJob).not.toHaveBeenCalledWith("j7");
+  });
+
+  it("finishes the persisted job, not a draft another device created later", async () => {
+    loadInvoices();
+    useWorkflowStore.setState({ serverJobId: "stale" });
+    vi.mocked(api.getCurrentJob).mockResolvedValueOnce({ job: null });
+    await sync.hydrateJobFromServer();
+    vi.mocked(api.getCurrentJob).mockResolvedValue({ job: { id: "other-device", state: serverState, updatedAt: "now" } });
+    await sync.finishJob({ status: "abandoned" });
+    expect(api.abandonJob).toHaveBeenCalledWith("stale");
+    expect(api.abandonJob).not.toHaveBeenCalledWith("other-device");
   });
 
   it("adopts the server draft id for local work that has none", async () => {
