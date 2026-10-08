@@ -219,13 +219,14 @@ export async function hydrateJobFromServer(): Promise<void> {
   const { job } = await api.getCurrentJob();
   if (gen !== generation) return;
   if (!job || pending.has(job.id)) return;
-  currentJobId = job.id;
   const workflow = useWorkflowStore.getState();
   if (hasJobContent(currentState())) {
     // Local work that already belongs to a server job keeps that id, so a closed one is rejected on save.
     if (workflow.serverJobId === null) workflow.setServerJobId(job.id);
+    currentJobId = useWorkflowStore.getState().serverJobId;
     return;
   }
+  currentJobId = job.id;
   if (isJobState(job.state)) {
     applyJobState(job.state);
     workflow.setServerJobId(job.id);

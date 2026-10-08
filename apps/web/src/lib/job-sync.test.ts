@@ -261,6 +261,16 @@ describe("server job id", () => {
     expect(useWorkflowStore.getState().serverJobId).toBe("stale");
   });
 
+  it("finishes the job local work belongs to, not a different server draft", async () => {
+    loadInvoices();
+    useWorkflowStore.setState({ serverJobId: "stale" });
+    vi.mocked(api.getCurrentJob).mockResolvedValue({ job: { id: "j7", state: serverState, updatedAt: "now" } });
+    await sync.hydrateJobFromServer();
+    await sync.finishJob({ status: "abandoned" });
+    expect(api.abandonJob).toHaveBeenCalledWith("stale");
+    expect(api.abandonJob).not.toHaveBeenCalledWith("j7");
+  });
+
   it("adopts the server draft id for local work that has none", async () => {
     loadInvoices();
     vi.mocked(api.getCurrentJob).mockResolvedValue({ job: { id: "j7", state: serverState, updatedAt: "now" } });
