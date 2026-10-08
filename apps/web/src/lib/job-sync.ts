@@ -54,12 +54,24 @@ function applyJobState(state: JobState) {
 async function flushPendingJobCloses(): Promise<Set<string>> {
   const stillPending = new Set<string>();
   if (currentUserId === null) return stillPending;
-  for (const entry of readPendingClosesForUser(localStorage, currentUserId)) {
+  const gen = generation;
+  const entries = readPendingClosesForUser(localStorage, currentUserId);
+  for (let i = 0; i < entries.length; i++) {
+    const entry = entries[i];
+    // The session changed mid-flush: any further call would carry the new user's cookie. Stop touching the
+    // queue and report this and every later entry as still pending.
+    const abortIfStale = () => {
+      if (gen === generation) return false;
+      for (const rest of entries.slice(i)) stillPending.add(rest.jobId);
+      return true;
+    };
+    if (abortIfStale()) return stillPending;
     try {
       if (entry.status === "sent") {
         try {
           await api.markJobSent(entry.jobId, { jobType: entry.jobType, worksheetNum: entry.worksheetNum });
         } catch (err) {
+          if (abortIfStale()) return stillPending;
           // 400: the server rejected the payload before touching the job, so it is still an open draft.
           // Abandon it so a later autosave or hydrate can never reopen a job the user already sent.
           if (err instanceof ApiError && err.status === 400) {
@@ -71,8 +83,10 @@ async function flushPendingJobCloses(): Promise<Set<string>> {
       } else {
         await api.abandonJob(entry.jobId);
       }
+      if (abortIfStale()) return stillPending;
       removePendingClose(localStorage, entry.jobId);
     } catch (err) {
+      if (abortIfStale()) return stillPending;
       // 404: job is gone. Anything else (network, 5xx, ...) keeps the close queued.
       if (err instanceof ApiError && err.status === 404) {
         removePendingClose(localStorage, entry.jobId);
@@ -215,8 +229,11 @@ export async function finishJob(close: FinishJobInput): Promise<void> {
     }
     // Without a known owner the close could be flushed under the wrong session, so it is not queued.
     const userId = currentUserId;
-    const queued = jobId !== null && userId !== null;
-    if (jobId !== null && userId !== null) enqueuePendingClose(localStorage, { jobId, userId, ...close });
+    let queued = false;
+    if (jobId !== null && userId !== null) {
+      enqueuePendingClose(localStorage, { jobId, userId, ...close });
+      queued = true;
+    }
     clearActiveJob();
     currentJobId = null;
     useJobSyncStore.getState().setSaveState("idle");

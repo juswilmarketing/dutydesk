@@ -468,6 +468,41 @@ describe("resetJobSync", () => {
     expect(pendingKeys()).toEqual([]);
   });
 
+  it("stops flushing the old user's closes when the session changes mid-flush", async () => {
+    const a1 = { jobId: "a1", status: "sent", jobType: "classification_only", worksheetNum: "W-1" };
+    const a2 = { jobId: "a2", status: "abandoned" };
+    queueCloses({ userId: 1, ...a1 }, { userId: 1, ...a2 });
+    let rejectSent!: (e: unknown) => void;
+    vi.mocked(api.markJobSent).mockReturnValue(new Promise((_, rej) => (rejectSent = rej)));
+    const hydrating = sync.hydrateJobFromServer();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(api.markJobSent).toHaveBeenCalledTimes(1);
+    sync.resetJobSync();
+    sync.setJobSyncUser(2);
+    // The old user's request, sent under the new session, comes back 404 (jobs are user-scoped).
+    rejectSent(new ApiError("gone", 404));
+    await hydrating;
+    expect(pendingKeys()).toEqual(["a1", "a2"]);
+    expect(api.markJobSent).toHaveBeenCalledTimes(1);
+    expect(api.abandonJob).not.toHaveBeenCalled();
+    expect(api.getCurrentJob).not.toHaveBeenCalled();
+  });
+
+  it("does not remove an entry or fall back to abandon when the session changes during a 400 fallback", async () => {
+    queueClose({ jobId: "a1", status: "sent", jobType: "classification_only", worksheetNum: "W-1" });
+    vi.mocked(api.markJobSent).mockRejectedValue(new ApiError("bad payload", 400));
+    let resolveAbandon!: (v: { ok: true; status: "abandoned" }) => void;
+    vi.mocked(api.abandonJob).mockReturnValue(new Promise((r) => (resolveAbandon = r)));
+    const hydrating = sync.hydrateJobFromServer();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(api.abandonJob).toHaveBeenCalledTimes(1);
+    sync.resetJobSync();
+    sync.setJobSyncUser(2);
+    resolveAbandon({ ok: true, status: "abandoned" });
+    await hydrating;
+    expect(pendingKeys()).toEqual(["a1"]);
+  });
+
   it("does not schedule a retry for a save that failed after the session was reset", async () => {
     let rejectSave!: (e: unknown) => void;
     vi.mocked(api.saveCurrentJob).mockReturnValue(new Promise((_, rej) => (rejectSave = rej)));
