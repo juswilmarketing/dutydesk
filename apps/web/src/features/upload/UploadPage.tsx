@@ -49,7 +49,12 @@ export function UploadPage() {
 
   const handleStartNewJob = async () => {
     if (!window.confirm(START_NEW_JOB_CONFIRM)) return;
-    await finishJob({ status: "abandoned" });
+    try {
+      await finishJob({ status: "abandoned" });
+    } catch (err) {
+      console.error("[upload] failed to start a new job", err);
+      window.alert("Couldn't start a new job. Please try again.");
+    }
   };
 
   const handleFile = async (file: File) => {

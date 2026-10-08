@@ -260,13 +260,23 @@ export function WorksheetPage() {
     jobType: DutyDeskJobType,
     notice: NonNullable<UploadLocationState["jobFinished"]>,
   ) => {
-    await finishJob({ status: "sent", jobType, worksheetNum });
+    try {
+      await finishJob({ status: "sent", jobType, worksheetNum });
+    } catch (err) {
+      console.error("[worksheet] failed to close job after send", err);
+    }
     navigate("/upload", { state: { jobFinished: notice } satisfies UploadLocationState });
   };
 
   const handleStartNewJob = async () => {
     if (!window.confirm(START_NEW_JOB_CONFIRM)) return;
-    await finishJob({ status: "abandoned" });
+    try {
+      await finishJob({ status: "abandoned" });
+    } catch (err) {
+      console.error("[worksheet] failed to start a new job", err);
+      window.alert("Couldn't start a new job. Please try again.");
+      return;
+    }
     navigate("/upload");
   };
 
