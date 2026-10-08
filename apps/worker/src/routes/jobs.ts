@@ -57,10 +57,12 @@ jobs.put("/current", async (c) => {
       .bind(id, c.var.userId, c.var.name || c.var.username, parsed.stateJson, parsed.worksheetNum, parsed.consigneeId, now, now)
       .run();
     return c.json({ id, updatedAt: now });
-  } catch {
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    if (!message.includes("UNIQUE constraint failed")) throw err;
     // Another request created the draft first (unique draft-per-user index).
     const racedId = await findDraftId(c);
-    if (!racedId) throw new Error("Failed to save job draft");
+    if (!racedId) throw err;
     const result = await update(racedId);
     if (!result.meta.changes) {
       return c.json({ error: "Job was closed; save again to start a new draft" }, 409);
@@ -93,7 +95,8 @@ async function closeJob(c: Context<JobsEnv>, status: Exclude<DutyJobStatus, "dra
     const current = await c.env.DB.prepare("SELECT status FROM duty_jobs WHERE id = ? AND user_id = ?")
       .bind(id, c.var.userId)
       .first<{ status: DutyJobStatus }>();
-    return c.json({ ok: true, status: current!.status });
+    if (!current) return c.json({ error: "Job not found" }, 404);
+    return c.json({ ok: true, status: current.status });
   }
   return c.json({ ok: true, status });
 }
