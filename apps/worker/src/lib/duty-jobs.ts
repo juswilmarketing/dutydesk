@@ -6,7 +6,7 @@ export type DutyJobType = "classification_only" | "brokerage_clearance";
 const JOB_TYPES: readonly DutyJobType[] = ["classification_only", "brokerage_clearance"];
 
 export type ParsedDraft =
-  | { ok: true; stateJson: string; worksheetNum: string | null; consigneeId: string | null }
+  | { ok: true; stateJson: string; worksheetNum: string | null; consigneeId: string | null; jobId: string | null }
   | { ok: false; status: 400 | 413; error: string };
 
 export type ParsedClose =
@@ -31,6 +31,9 @@ export function parseDraftPayload(body: unknown): ParsedDraft {
   if (!Array.isArray(state.invoices)) {
     return { ok: false, status: 400, error: "Job state must include an invoices array" };
   }
+  if (body.jobId !== undefined && body.jobId !== null && typeof body.jobId !== "string") {
+    return { ok: false, status: 400, error: "Invalid job id" };
+  }
   const stateJson = JSON.stringify(state);
   if (new TextEncoder().encode(stateJson).length > MAX_JOB_STATE_BYTES) {
     return { ok: false, status: 413, error: "Job is too large to save" };
@@ -41,6 +44,7 @@ export function parseDraftPayload(body: unknown): ParsedDraft {
     stateJson,
     worksheetNum: trimmedOrNull(taxInputs.worksheetNum),
     consigneeId: trimmedOrNull(state.activeConsigneeId),
+    jobId: trimmedOrNull(body.jobId),
   };
 }
 

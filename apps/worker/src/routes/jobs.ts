@@ -34,17 +34,36 @@ jobs.put("/current", async (c) => {
   const update = (id: string) =>
     c.env.DB.prepare(
       `UPDATE duty_jobs SET state_json = ?, worksheet_num = ?, consignee_id = ?, updated_at = ?
-       WHERE id = ? AND status = 'draft'`,
+       WHERE id = ? AND user_id = ? AND status = 'draft'`,
     )
-      .bind(parsed.stateJson, parsed.worksheetNum, parsed.consigneeId, now, id)
+      .bind(parsed.stateJson, parsed.worksheetNum, parsed.consigneeId, now, id, c.var.userId)
       .run();
+  const findStatus = (id: string) =>
+    c.env.DB.prepare("SELECT status FROM duty_jobs WHERE id = ? AND user_id = ?")
+      .bind(id, c.var.userId)
+      .first<{ status: DutyJobStatus }>();
+  const jobClosed = (status: DutyJobStatus) =>
+    c.json({ error: "This job was already sent or closed", code: "job_closed", status }, 409);
+  const draftConflict = () =>
+    c.json({ error: "Job was closed; save again to start a new draft", code: "draft_conflict" }, 409);
+
+  if (parsed.jobId) {
+    const known = await findStatus(parsed.jobId);
+    if (known && known.status !== "draft") return jobClosed(known.status);
+    if (known) {
+      const result = await update(parsed.jobId);
+      if (!result.meta.changes) {
+        const current = await findStatus(parsed.jobId);
+        return current && current.status !== "draft" ? jobClosed(current.status) : draftConflict();
+      }
+      return c.json({ id: parsed.jobId, updatedAt: now });
+    }
+  }
 
   const existingId = await findDraftId(c);
   if (existingId) {
     const result = await update(existingId);
-    if (!result.meta.changes) {
-      return c.json({ error: "Job was closed; save again to start a new draft" }, 409);
-    }
+    if (!result.meta.changes) return draftConflict();
     return c.json({ id: existingId, updatedAt: now });
   }
 
@@ -64,9 +83,7 @@ jobs.put("/current", async (c) => {
     const racedId = await findDraftId(c);
     if (!racedId) throw err;
     const result = await update(racedId);
-    if (!result.meta.changes) {
-      return c.json({ error: "Job was closed; save again to start a new draft" }, 409);
-    }
+    if (!result.meta.changes) return draftConflict();
     return c.json({ id: racedId, updatedAt: now });
   }
 });
@@ -98,9 +115,9 @@ async function closeJob(c: Context<JobsEnv>, status: Exclude<DutyJobStatus, "dra
     `UPDATE duty_jobs
      SET status = ?, job_type = COALESCE(?, job_type), worksheet_num = COALESCE(?, worksheet_num),
          sent_at = CASE WHEN ? = 'sent' THEN ? ELSE sent_at END, updated_at = ?
-     WHERE id = ? AND status = 'draft'`,
+     WHERE id = ? AND user_id = ? AND status = 'draft'`,
   )
-    .bind(status, parsed.jobType, parsed.worksheetNum, status, now, now, id)
+    .bind(status, parsed.jobType, parsed.worksheetNum, status, now, now, id, c.var.userId)
     .run();
   if (!result.meta.changes) {
     const current = await c.env.DB.prepare("SELECT status FROM duty_jobs WHERE id = ? AND user_id = ?")

@@ -31,12 +31,31 @@ describe("parseDraftPayload", () => {
       stateJson: JSON.stringify(state),
       worksheetNum: "WS-100",
       consigneeId: "c_1",
+      jobId: null,
     });
   });
 
   it("uses nulls when worksheet number and consignee are blank", () => {
     const result = parseDraftPayload({ state: { invoices: [], taxInputs: { worksheetNum: "" } } });
     expect(result).toMatchObject({ ok: true, worksheetNum: null, consigneeId: null });
+  });
+
+  it("accepts an optional job id", () => {
+    expect(parseDraftPayload({ state: { invoices: [] }, jobId: "j_1" })).toMatchObject({ ok: true, jobId: "j_1" });
+  });
+
+  it("treats a missing, null or blank job id as a new job", () => {
+    expect(parseDraftPayload({ state: { invoices: [] } })).toMatchObject({ ok: true, jobId: null });
+    expect(parseDraftPayload({ state: { invoices: [] }, jobId: null })).toMatchObject({ ok: true, jobId: null });
+    expect(parseDraftPayload({ state: { invoices: [] }, jobId: "  " })).toMatchObject({ ok: true, jobId: null });
+  });
+
+  it("rejects a non-string job id", () => {
+    expect(parseDraftPayload({ state: { invoices: [] }, jobId: 42 })).toEqual({
+      ok: false,
+      status: 400,
+      error: "Invalid job id",
+    });
   });
 });
 
