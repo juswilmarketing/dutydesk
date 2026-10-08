@@ -261,7 +261,7 @@ git commit -m "feat(worker): duty_jobs table and job payload validation"
 - Consumes: `parseDraftPayload`, `parseClosePayload`, `DutyJobStatus` from Task 1.
 - Produces HTTP API (all behind `authMiddleware`, scoped to `c.var.userId`):
   - `GET /api/jobs/current` → `200 { job: { id: string; state: unknown; updatedAt: string } | null }`
-  - `PUT /api/jobs/current` body `{ state }` → `200 { id: string; updatedAt: string }` | `400` | `413`
+  - `PUT /api/jobs/current` body `{ state }` → `200 { id: string; updatedAt: string }` | `400` | `413` | `409` (the draft was closed between lookup and update; never creates a replacement draft in that case — the client retries later)
   - `POST /api/jobs/:id/sent` body `{ jobType?, worksheetNum? }` → `200 { ok: true; status: DutyJobStatus }` | `400` | `404`
   - `POST /api/jobs/:id/abandon` → `200 { ok: true; status: DutyJobStatus }` | `404`
 

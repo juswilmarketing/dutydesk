@@ -48,7 +48,7 @@ Partial unique index: one `draft` per `user_id`.
 ### Worker API (`apps/worker/src/routes/jobs.ts`)
 
 - `GET /api/jobs/current` — returns the caller's open draft, or `null`.
-- `PUT /api/jobs/current` — upsert draft `state_json` (creates draft if none).
+- `PUT /api/jobs/current` — upsert draft `state_json` (creates draft if none). Returns 409 if the draft was closed mid-save; a stale save never creates a replacement draft.
 - `POST /api/jobs/:id/sent` — `{ jobType, worksheetNum }` → status `sent`, `sent_at` set. Idempotent.
 - `POST /api/jobs/:id/abandon` — status `abandoned`. Idempotent.
 
