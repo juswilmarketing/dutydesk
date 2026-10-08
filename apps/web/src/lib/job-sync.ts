@@ -1,7 +1,7 @@
 import type { DutyDeskJobType } from "@pas/shared-types";
 import { api, ApiError } from "@/lib/api-client";
 import { hasJobContent, isJobState, pickJobState, type JobState } from "@/lib/job-state";
-import { enqueuePendingClose, readPendingCloses, removePendingClose } from "@/lib/job-close-queue";
+import { enqueuePendingClose, readPendingClosesForUser, removePendingClose } from "@/lib/job-close-queue";
 import { clearActiveJob } from "@/lib/session-reset";
 import { useInvoiceStore } from "@/stores/invoice-store";
 import { useWorkflowStore } from "@/stores/workflow-store";
@@ -23,8 +23,14 @@ let currentJobId: string | null = null;
 let timer: ReturnType<typeof setTimeout> | null = null;
 let chain: Promise<void> = Promise.resolve();
 let suspended = false;
+/** Owner of this session's pending closes. Entries queued by other users are never touched. */
+let currentUserId: number | null = null;
 /** Bumped by resetJobSync(); async work that started under an older generation must not touch module state. */
 let generation = 0;
+
+export function setJobSyncUser(userId: number | null) {
+  currentUserId = userId;
+}
 
 function currentState(): JobState {
   return pickJobState(useInvoiceStore.getState(), useWorkflowStore.getState());
@@ -44,10 +50,11 @@ function applyJobState(state: JobState) {
   });
 }
 
-/** Retry queued closes. Returns ids that are still pending (server unreachable). */
+/** Retry the current user's queued closes. Returns ids that are still pending (server unreachable). */
 async function flushPendingJobCloses(): Promise<Set<string>> {
   const stillPending = new Set<string>();
-  for (const entry of readPendingCloses(localStorage)) {
+  if (currentUserId === null) return stillPending;
+  for (const entry of readPendingClosesForUser(localStorage, currentUserId)) {
     try {
       if (entry.status === "sent") {
         try {
@@ -93,7 +100,7 @@ async function saveNow(): Promise<void> {
   const gen = generation;
 
   // Never write into a draft that is still waiting to be closed as sent/abandoned.
-  if (readPendingCloses(localStorage).length > 0) {
+  if (currentUserId !== null && readPendingClosesForUser(localStorage, currentUserId).length > 0) {
     const stillPending = await flushPendingJobCloses();
     if (gen !== generation) return;
     if (stillPending.size > 0) {
@@ -177,6 +184,7 @@ export function resetJobSync() {
     timer = null;
   }
   currentJobId = null;
+  currentUserId = null;
   generation++;
 }
 
@@ -205,11 +213,14 @@ export async function finishJob(close: FinishJobInput): Promise<void> {
     if (!jobId) {
       jobId = (await api.getCurrentJob().catch(() => ({ job: null }))).job?.id ?? null;
     }
-    if (jobId) enqueuePendingClose(localStorage, { jobId, ...close });
+    // Without a known owner the close could be flushed under the wrong session, so it is not queued.
+    const userId = currentUserId;
+    const queued = jobId !== null && userId !== null;
+    if (jobId !== null && userId !== null) enqueuePendingClose(localStorage, { jobId, userId, ...close });
     clearActiveJob();
     currentJobId = null;
     useJobSyncStore.getState().setSaveState("idle");
-    if (jobId) await flushPendingJobCloses();
+    if (queued) await flushPendingJobCloses();
   } finally {
     suspended = false;
   }

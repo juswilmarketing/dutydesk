@@ -9,13 +9,14 @@ export interface KeyValueStorage {
 }
 
 export type PendingJobClose =
-  | { jobId: string; status: "sent"; jobType: DutyDeskJobType; worksheetNum: string }
-  | { jobId: string; status: "abandoned" };
+  | { jobId: string; userId: number; status: "sent"; jobType: DutyDeskJobType; worksheetNum: string }
+  | { jobId: string; userId: number; status: "abandoned" };
 
 function isPendingJobClose(value: unknown): value is PendingJobClose {
   if (typeof value !== "object" || value === null) return false;
   const o = value as Record<string, unknown>;
   if (typeof o.jobId !== "string" || o.jobId.length === 0) return false;
+  if (typeof o.userId !== "number" || !Number.isFinite(o.userId)) return false;
   if (o.status === "abandoned") return true;
   if (o.status !== "sent") return false;
   if (o.jobType !== "classification_only" && o.jobType !== "brokerage_clearance") return false;
@@ -29,6 +30,11 @@ export function readPendingCloses(storage: KeyValueStorage): PendingJobClose[] {
   } catch {
     return [];
   }
+}
+
+/** Entries queued by the given user. Another user's entries must never be flushed under this session. */
+export function readPendingClosesForUser(storage: KeyValueStorage, userId: number): PendingJobClose[] {
+  return readPendingCloses(storage).filter((e) => e.userId === userId);
 }
 
 function write(storage: KeyValueStorage, entries: PendingJobClose[]) {

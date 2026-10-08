@@ -73,7 +73,11 @@ function pendingKeys(): string[] {
 }
 
 function queueClose(entry: Record<string, unknown>) {
-  memory.map.set(PENDING_KEY, JSON.stringify([entry]));
+  queueCloses({ userId: 1, ...entry });
+}
+
+function queueCloses(...entries: Record<string, unknown>[]) {
+  memory.map.set(PENDING_KEY, JSON.stringify(entries));
 }
 
 function loadInvoices() {
@@ -93,6 +97,7 @@ beforeEach(async () => {
   vi.mocked(api.saveCurrentJob).mockResolvedValue({ id: "j1", updatedAt: "now" });
   vi.mocked(api.markJobSent).mockResolvedValue({ ok: true, status: "sent" });
   vi.mocked(api.abandonJob).mockResolvedValue({ ok: true, status: "abandoned" });
+  sync.setJobSyncUser(1);
   stop = null;
 });
 
@@ -315,6 +320,63 @@ describe("pending closes", () => {
   });
 });
 
+describe("pending closes owned by another user", () => {
+  const theirs = { jobId: "theirs", userId: 2, status: "abandoned" };
+
+  it("neither flushes nor removes another user's entry during hydrate, and does not block autosave", async () => {
+    queueCloses(theirs);
+    stop = sync.startJobAutosave();
+    await sync.hydrateJobFromServer();
+    expect(api.abandonJob).not.toHaveBeenCalled();
+    expect(api.markJobSent).not.toHaveBeenCalled();
+    expect(pendingKeys()).toEqual(["theirs"]);
+    loadInvoices();
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(api.saveCurrentJob).toHaveBeenCalledTimes(1);
+    expect(api.abandonJob).not.toHaveBeenCalled();
+    expect(pendingKeys()).toEqual(["theirs"]);
+  });
+
+  it("flushes and removes the entry once its owner becomes the current user", async () => {
+    queueCloses(theirs);
+    await sync.hydrateJobFromServer();
+    expect(pendingKeys()).toEqual(["theirs"]);
+    sync.resetJobSync();
+    sync.setJobSyncUser(2);
+    await sync.hydrateJobFromServer();
+    expect(api.abandonJob).toHaveBeenCalledWith("theirs");
+    expect(pendingKeys()).toEqual([]);
+  });
+
+  it("processes nothing when there is no current user", async () => {
+    queueCloses({ ...theirs, userId: 1 });
+    sync.setJobSyncUser(null);
+    await sync.hydrateJobFromServer();
+    expect(api.abandonJob).not.toHaveBeenCalled();
+    expect(pendingKeys()).toEqual(["theirs"]);
+  });
+
+  it("finishJob with no current user clears the screen and enqueues nothing", async () => {
+    stop = sync.startJobAutosave();
+    loadInvoices();
+    await vi.advanceTimersByTimeAsync(1000); // saves as j1
+    sync.setJobSyncUser(null);
+    await sync.finishJob({ status: "sent", jobType: "classification_only", worksheetNum: "W-3" });
+    expect(useInvoiceStore.getState().invoices).toEqual([]);
+    expect(memory.map.get(PENDING_KEY) ?? "[]").toBe("[]");
+    expect(api.markJobSent).not.toHaveBeenCalled();
+    expect(api.abandonJob).not.toHaveBeenCalled();
+  });
+
+  it("finishJob stamps the queued close with the current user id", async () => {
+    stop = sync.startJobAutosave();
+    loadInvoices();
+    await vi.advanceTimersByTimeAsync(1000);
+    vi.mocked(api.abandonJob).mockRejectedValue(new ApiError("down", 503));
+    await sync.finishJob({ status: "abandoned" });
+    expect(JSON.parse(memory.map.get(PENDING_KEY) ?? "[]")).toEqual([{ jobId: "j1", userId: 1, status: "abandoned" }]);
+  });
+});
 describe("finishJob", () => {
   it("queues the close, clears the screen, closes on the server and dequeues", async () => {
     stop = sync.startJobAutosave();
