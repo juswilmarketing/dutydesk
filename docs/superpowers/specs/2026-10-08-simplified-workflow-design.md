@@ -38,11 +38,12 @@
 | `job_type` | TEXT NULL | `classification_only` \| `brokerage_clearance` (set at send) |
 | `worksheet_num` | TEXT NULL | |
 | `consignee_id` | TEXT NULL | |
-| `created_by` | TEXT | user id / name |
-| `state_json` | TEXT | `{ invoices, activeInvId, itemExemptions, taxInputs, brokerageInputs, approvedTaxSheet }` |
+| `user_id` | INTEGER | session user id (ownership) |
+| `created_by` | TEXT | display name |
+| `state_json` | TEXT | `{ invoices, activeInvId, itemExemptions, taxInputs, brokerageInputs, approvedTaxSheet, activeConsigneeId }`, max 1.5 MB |
 | `created_at` / `updated_at` / `sent_at` | TEXT | ISO timestamps |
 
-Partial unique index: one `draft` per `created_by`.
+Partial unique index: one `draft` per `user_id`.
 
 ### Worker API (`apps/worker/src/routes/jobs.ts`)
 
@@ -55,14 +56,13 @@ Sent/abandoned jobs are never returned by `/current`.
 
 ### Web behaviour
 
-- **Upload** ensures a draft exists (creates via `PUT` if needed).
-- **Autosave:** subscribe to invoice + workflow job fields; debounce ~1s; `PUT /api/jobs/current`. Browser persistence stays as an offline buffer until the server confirms.
-- **App load / login:** fetch `/api/jobs/current`; if present, hydrate stores from `state_json`.
-- **New `clearActiveJob()`** (in `apps/web/src/lib/session-reset.ts`): clears invoices, lines, activeInvId, itemExemptions, taxInputs, brokerageInputs, approvedTaxSheet, exchange rate. **Keeps** consignees, tax log, learned map, supplier history, auth.
+- **Autosave:** subscribe to invoice + workflow job fields; debounce ~1s; `PUT /api/jobs/current` (the first save after an upload creates the draft). Browser persistence stays as an offline buffer until the server confirms. Jobs with no invoices are not saved.
+- **App load / login:** flush pending closes, then fetch `/api/jobs/current`; if present and the browser has no job loaded, hydrate stores from `state_json`.
+- **New `clearActiveJob()`** (in `apps/web/src/lib/session-reset.ts`): clears invoices, lines, activeInvId, itemExemptions, taxInputs, brokerageInputs, approvedTaxSheet, selected consignee. **Keeps** the consignee list, tax log, learned map, supplier history, the shared exchange rate, and auth.
 - **On successful send:**
   - Classification Only: `WorksheetPage.handleClassificationSent` (after `EmailModal` `onSent`).
   - Brokerage: after `sendWorksheetToFlowBoard` resolves in `handleBrokerageSend`.
-  - Sequence: `POST /sent` → `clearActiveJob()` → navigate `/upload` → toast *"Worksheet {num} sent. Ready for the next job."*
+  - Sequence: close job (`POST /sent`, queued if it fails) → `clearActiveJob()` → navigate `/upload` → banner *"Worksheet {num} sent… Ready for the next job."* (with an "Open in FlowBoard" link for brokerage). The banner replaces the modal success screens.
 - **Start new job** button on Worksheet (and Upload when a draft exists): confirm dialog → `POST /abandon` → `clearActiveJob()` → `/upload`.
 - **Failed send:** no clear; job stays `draft`.
 - Logout keeps existing `clearLocalSessionData()`; the draft remains on the server and reloads on next login.
