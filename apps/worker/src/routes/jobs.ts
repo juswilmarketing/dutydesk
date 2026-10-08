@@ -41,7 +41,10 @@ jobs.put("/current", async (c) => {
 
   const existingId = await findDraftId(c);
   if (existingId) {
-    await update(existingId);
+    const result = await update(existingId);
+    if (!result.meta.changes) {
+      return c.json({ error: "Job was closed; save again to start a new draft" }, 409);
+    }
     return c.json({ id: existingId, updatedAt: now });
   }
 
@@ -58,7 +61,10 @@ jobs.put("/current", async (c) => {
     // Another request created the draft first (unique draft-per-user index).
     const racedId = await findDraftId(c);
     if (!racedId) throw new Error("Failed to save job draft");
-    await update(racedId);
+    const result = await update(racedId);
+    if (!result.meta.changes) {
+      return c.json({ error: "Job was closed; save again to start a new draft" }, 409);
+    }
     return c.json({ id: racedId, updatedAt: now });
   }
 });
@@ -75,7 +81,7 @@ async function closeJob(c: Context<JobsEnv>, status: Exclude<DutyJobStatus, "dra
   if (row.status !== "draft") return c.json({ ok: true, status: row.status });
 
   const now = new Date().toISOString();
-  await c.env.DB.prepare(
+  const result = await c.env.DB.prepare(
     `UPDATE duty_jobs
      SET status = ?, job_type = COALESCE(?, job_type), worksheet_num = COALESCE(?, worksheet_num),
          sent_at = CASE WHEN ? = 'sent' THEN ? ELSE sent_at END, updated_at = ?
@@ -83,6 +89,12 @@ async function closeJob(c: Context<JobsEnv>, status: Exclude<DutyJobStatus, "dra
   )
     .bind(status, parsed.jobType, parsed.worksheetNum, status, now, now, id)
     .run();
+  if (!result.meta.changes) {
+    const current = await c.env.DB.prepare("SELECT status FROM duty_jobs WHERE id = ? AND user_id = ?")
+      .bind(id, c.var.userId)
+      .first<{ status: DutyJobStatus }>();
+    return c.json({ ok: true, status: current!.status });
+  }
   return c.json({ ok: true, status });
 }
 
