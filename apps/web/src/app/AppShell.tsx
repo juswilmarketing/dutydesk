@@ -12,6 +12,7 @@ import { NAV_TAB_TIPS } from '@/lib/nav-tips';
 import { Tooltip } from '@/components/ui/Tooltip';
 import { dashboardMetrics } from '@/lib/workflow-pipeline';
 import { ScrollableTabNav } from '@/components/layout/ScrollableTabNav';
+import { JobSaveIndicator } from '@/components/workflow/JobSaveIndicator';
 
 type TabDef = {
   to: string;
@@ -173,7 +174,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           })}
         </ScrollableTabNav>
 
-        <main className="min-w-0">{children}</main>
+        <main className="min-w-0">
+          <JobSaveIndicator />
+          {children}
+        </main>
 
         <footer className="dd-notif-info mt-6 text-center sm:text-left">
           <strong>Duty Desk</strong> — customs worksheet preparation · Customer delivery via{' '}

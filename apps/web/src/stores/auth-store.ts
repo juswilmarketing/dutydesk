@@ -2,6 +2,7 @@ import { create } from "zustand";
 import type { SessionUser } from "@pas/shared-types";
 import { api } from "@/lib/api-client";
 import { clearLocalSessionData } from "@/lib/session-reset";
+import { flushJobAutosave } from "@/lib/job-sync";
 
 interface AuthState {
   user: SessionUser | null;
@@ -40,6 +41,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
   logout: async () => {
     try {
+      await flushJobAutosave().catch(() => null);
       await api.logout();
     } finally {
       clearLocalSessionData();

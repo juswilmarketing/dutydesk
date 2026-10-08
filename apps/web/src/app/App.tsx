@@ -7,6 +7,7 @@ import { useAuthStore } from "@/stores/auth-store";
 import { useInvoiceStore } from "@/stores/invoice-store";
 import { api } from "@/lib/api-client";
 import { syncTeamWorkflow } from "@/lib/workflow-sync";
+import { hydrateJobFromServer, startJobAutosave } from "@/lib/job-sync";
 
 const UploadPage = lazy(() => import("@/features/upload/UploadPage").then((m) => ({ default: m.UploadPage })));
 const ReviewPage = lazy(() => import("@/features/review/ReviewPage").then((m) => ({ default: m.ReviewPage })));
@@ -73,6 +74,22 @@ function ProtectedRoutes() {
     const timer = window.setTimeout(load, 100);
     return () => window.clearTimeout(timer);
   }, [user, setLearnedMap, setSupplierHistory]);
+
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    let stopAutosave: (() => void) | null = null;
+    hydrateJobFromServer()
+      .catch(() => null)
+      .finally(() => {
+        if (!cancelled) stopAutosave = startJobAutosave();
+      });
+    return () => {
+      cancelled = true;
+      stopAutosave?.();
+    };
+  }, [user]);
+
   if (!user) return <Navigate to="/login" replace />;
   return (
     <AppShell>
