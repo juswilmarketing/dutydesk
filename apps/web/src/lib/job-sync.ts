@@ -52,8 +52,12 @@ async function flushPendingJobCloses(): Promise<Set<string>> {
       }
       removePendingClose(localStorage, entry.jobId);
     } catch (err) {
-      if (err instanceof ApiError && err.status === 404) removePendingClose(localStorage, entry.jobId);
-      else stillPending.add(entry.jobId);
+      // 404: job is gone. 400: the server rejected the close payload for good; keeping it would block every save.
+      if (err instanceof ApiError && (err.status === 404 || err.status === 400)) {
+        removePendingClose(localStorage, entry.jobId);
+      } else {
+        stillPending.add(entry.jobId);
+      }
     }
   }
   return stillPending;
@@ -97,8 +101,16 @@ async function saveNow(): Promise<void> {
   }
 }
 
+/** Serialises saves. The chain never rejects: an unexpected failure is surfaced and retried instead. */
 function enqueueSave(): Promise<void> {
-  chain = chain.then(saveNow);
+  chain = chain.then(saveNow).catch(() => {
+    try {
+      useJobSyncStore.getState().setSaveState("error", "Not saved — retrying");
+    } catch {
+      // Status reporting must never break the chain.
+    }
+    schedule(RETRY_DELAY_MS);
+  });
   return chain;
 }
 
@@ -136,6 +148,15 @@ export function startJobAutosave(): () => void {
       timer = null;
     }
   };
+}
+
+/** Forget per-user module state (e.g. on logout). Leaves the pending-close queue alone: it must survive. */
+export function resetJobSync() {
+  if (timer) {
+    clearTimeout(timer);
+    timer = null;
+  }
+  currentJobId = null;
 }
 
 export async function hydrateJobFromServer(): Promise<void> {

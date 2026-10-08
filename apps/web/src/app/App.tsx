@@ -7,7 +7,7 @@ import { useAuthStore } from "@/stores/auth-store";
 import { useInvoiceStore } from "@/stores/invoice-store";
 import { api } from "@/lib/api-client";
 import { syncTeamWorkflow } from "@/lib/workflow-sync";
-import { hydrateJobFromServer, startJobAutosave } from "@/lib/job-sync";
+import { hydrateJobFromServer, resetJobSync, startJobAutosave } from "@/lib/job-sync";
 
 const UploadPage = lazy(() => import("@/features/upload/UploadPage").then((m) => ({ default: m.UploadPage })));
 const ReviewPage = lazy(() => import("@/features/review/ReviewPage").then((m) => ({ default: m.ReviewPage })));
@@ -87,6 +87,7 @@ function ProtectedRoutes() {
     return () => {
       cancelled = true;
       stopAutosave?.();
+      resetJobSync();
     };
   }, [user]);
 
