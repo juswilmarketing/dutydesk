@@ -9,6 +9,8 @@ import { useJobSyncStore } from "@/stores/job-sync-store";
 
 const AUTOSAVE_DELAY_MS = 1000;
 const RETRY_DELAY_MS = 5000;
+const NOT_SAVED_RETRYING = "Not saved — retrying";
+const TOO_LARGE_MESSAGE = "This job is too large to save to the server. It is kept in this browser only.";
 
 export const START_NEW_JOB_CONFIRM =
   "Discard this job and start a new one? The current invoice, classifications and tax entries will be cleared.";
@@ -21,6 +23,8 @@ let currentJobId: string | null = null;
 let timer: ReturnType<typeof setTimeout> | null = null;
 let chain: Promise<void> = Promise.resolve();
 let suspended = false;
+/** Bumped by resetJobSync(); async work that started under an older generation must not touch module state. */
+let generation = 0;
 
 function currentState(): JobState {
   return pickJobState(useInvoiceStore.getState(), useWorkflowStore.getState());
@@ -46,14 +50,24 @@ async function flushPendingJobCloses(): Promise<Set<string>> {
   for (const entry of readPendingCloses(localStorage)) {
     try {
       if (entry.status === "sent") {
-        await api.markJobSent(entry.jobId, { jobType: entry.jobType, worksheetNum: entry.worksheetNum });
+        try {
+          await api.markJobSent(entry.jobId, { jobType: entry.jobType, worksheetNum: entry.worksheetNum });
+        } catch (err) {
+          // 400: the server rejected the payload before touching the job, so it is still an open draft.
+          // Abandon it so a later autosave or hydrate can never reopen a job the user already sent.
+          if (err instanceof ApiError && err.status === 400) {
+            await api.abandonJob(entry.jobId);
+          } else {
+            throw err;
+          }
+        }
       } else {
         await api.abandonJob(entry.jobId);
       }
       removePendingClose(localStorage, entry.jobId);
     } catch (err) {
-      // 404: job is gone. 400: the server rejected the close payload for good; keeping it would block every save.
-      if (err instanceof ApiError && (err.status === 404 || err.status === 400)) {
+      // 404: job is gone. Anything else (network, 5xx, ...) keeps the close queued.
+      if (err instanceof ApiError && err.status === 404) {
         removePendingClose(localStorage, entry.jobId);
       } else {
         stillPending.add(entry.jobId);
@@ -76,36 +90,42 @@ async function saveNow(): Promise<void> {
   const state = currentState();
   if (!hasJobContent(state)) return;
   const sync = useJobSyncStore.getState();
+  const gen = generation;
 
   // Never write into a draft that is still waiting to be closed as sent/abandoned.
-  if (readPendingCloses(localStorage).length > 0 && (await flushPendingJobCloses()).size > 0) {
-    sync.setSaveState("error", "Not saved — retrying");
-    schedule(RETRY_DELAY_MS);
-    return;
+  if (readPendingCloses(localStorage).length > 0) {
+    const stillPending = await flushPendingJobCloses();
+    if (gen !== generation) return;
+    if (stillPending.size > 0) {
+      sync.setSaveState("error", NOT_SAVED_RETRYING);
+      schedule(RETRY_DELAY_MS);
+      return;
+    }
   }
 
   sync.setSaveState("saving");
   try {
     const res = await api.saveCurrentJob(state);
+    if (gen !== generation) return;
     currentJobId = res.id;
     useJobSyncStore.getState().setSaveState("saved");
   } catch (err) {
+    if (gen !== generation) return;
     if (err instanceof ApiError && err.status === 413) {
-      useJobSyncStore
-        .getState()
-        .setSaveState("error", "This job is too large to save to the server. It is kept in this browser only.");
+      useJobSyncStore.getState().setSaveState("error", TOO_LARGE_MESSAGE);
       return;
     }
-    useJobSyncStore.getState().setSaveState("error", "Not saved — retrying");
+    useJobSyncStore.getState().setSaveState("error", NOT_SAVED_RETRYING);
     schedule(RETRY_DELAY_MS);
   }
 }
 
 /** Serialises saves. The chain never rejects: an unexpected failure is surfaced and retried instead. */
 function enqueueSave(): Promise<void> {
-  chain = chain.then(saveNow).catch(() => {
+  chain = chain.then(saveNow).catch((err) => {
+    console.error("[job-sync] autosave failed", err);
     try {
-      useJobSyncStore.getState().setSaveState("error", "Not saved — retrying");
+      useJobSyncStore.getState().setSaveState("error", NOT_SAVED_RETRYING);
     } catch {
       // Status reporting must never break the chain.
     }
@@ -157,11 +177,15 @@ export function resetJobSync() {
     timer = null;
   }
   currentJobId = null;
+  generation++;
 }
 
 export async function hydrateJobFromServer(): Promise<void> {
+  const gen = generation;
   const pending = await flushPendingJobCloses();
+  if (gen !== generation) return;
   const { job } = await api.getCurrentJob();
+  if (gen !== generation) return;
   if (!job || pending.has(job.id)) return;
   currentJobId = job.id;
   if (hasJobContent(currentState())) return;

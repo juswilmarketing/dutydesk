@@ -168,6 +168,14 @@ describe("autosave", () => {
   });
 
   describe("when saveNow throws unexpectedly", () => {
+    let errorSpy: ReturnType<typeof vi.spyOn>;
+    beforeEach(() => {
+      errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    });
+    afterEach(() => {
+      errorSpy.mockRestore();
+    });
+
     function throwOnceOnSaving() {
       const original = useJobSyncStore.getState().setSaveState;
       let thrown = false;
@@ -189,6 +197,7 @@ describe("autosave", () => {
       await vi.advanceTimersByTimeAsync(1000);
       expect(useJobSyncStore.getState()).toMatchObject({ saveState: "error", error: RETRYING });
       expect(api.saveCurrentJob).not.toHaveBeenCalled();
+      expect(errorSpy).toHaveBeenCalledWith("[job-sync] autosave failed", expect.any(Error));
       await vi.advanceTimersByTimeAsync(5000);
       expect(api.saveCurrentJob).toHaveBeenCalledTimes(1);
       expect(useJobSyncStore.getState().saveState).toBe("saved");
@@ -238,17 +247,54 @@ describe("hydrateJobFromServer", () => {
     await sync.hydrateJobFromServer();
     expect(api.markJobSent).toHaveBeenCalledWith("j1", { jobType: "classification_only", worksheetNum: "W-1" });
     expect(pendingKeys()).toEqual([]);
+    const sentOrder = vi.mocked(api.markJobSent).mock.invocationCallOrder[0];
+    const fetchOrder = vi.mocked(api.getCurrentJob).mock.invocationCallOrder[0];
+    expect(sentOrder).toBeLessThan(fetchOrder);
   });
 });
 
 describe("pending closes", () => {
   const sent = { jobId: "j1", status: "sent", jobType: "classification_only", worksheetNum: "W-1" };
 
-  it.each([404, 400])("drops a queued close the server permanently rejects (%i)", async (status) => {
+  it("drops a queued sent close when the job is gone (404)", async () => {
     queueClose(sent);
-    vi.mocked(api.markJobSent).mockRejectedValue(new ApiError("rejected", status));
+    vi.mocked(api.markJobSent).mockRejectedValue(new ApiError("gone", 404));
+    await sync.hydrateJobFromServer();
+    expect(api.abandonJob).not.toHaveBeenCalled();
+    expect(pendingKeys()).toEqual([]);
+  });
+
+  it("abandons the job when the server rejects a queued sent close (400), removing the entry only afterwards", async () => {
+    queueClose(sent);
+    vi.mocked(api.markJobSent).mockRejectedValue(new ApiError("bad payload", 400));
+    let queuedDuringAbandon: string[] = [];
+    vi.mocked(api.abandonJob).mockImplementation(async () => {
+      queuedDuringAbandon = pendingKeys();
+      return { ok: true, status: "abandoned" };
+    });
+    await sync.hydrateJobFromServer();
+    expect(api.abandonJob).toHaveBeenCalledWith("j1");
+    expect(queuedDuringAbandon).toEqual(["j1"]);
+    expect(pendingKeys()).toEqual([]);
+  });
+
+  it("removes a rejected sent close when the abandon fallback finds the job gone (404)", async () => {
+    queueClose(sent);
+    vi.mocked(api.markJobSent).mockRejectedValue(new ApiError("bad payload", 400));
+    vi.mocked(api.abandonJob).mockRejectedValue(new ApiError("gone", 404));
     await sync.hydrateJobFromServer();
     expect(pendingKeys()).toEqual([]);
+  });
+
+  it("keeps a rejected sent close queued when the abandon fallback fails", async () => {
+    queueClose(sent);
+    vi.mocked(api.markJobSent).mockRejectedValue(new ApiError("bad payload", 400));
+    vi.mocked(api.abandonJob).mockRejectedValue(new Error("network down"));
+    vi.mocked(api.getCurrentJob).mockResolvedValue({ job: { id: "j1", state: serverState, updatedAt: "now" } });
+    await sync.hydrateJobFromServer();
+    expect(api.abandonJob).toHaveBeenCalledWith("j1");
+    expect(pendingKeys()).toEqual(["j1"]);
+    expect(useInvoiceStore.getState().invoices).toEqual([]); // still pending: never re-hydrated
   });
 
   it.each([500, 503, 409])("keeps a queued close after a transient failure (%i)", async (status) => {
@@ -325,5 +371,51 @@ describe("resetJobSync", () => {
     sync.resetJobSync();
     await vi.advanceTimersByTimeAsync(10_000);
     expect(api.saveCurrentJob).not.toHaveBeenCalled();
+  });
+
+  it("ignores a hydrate that was in flight when the session was reset", async () => {
+    let resolveJob!: (v: Awaited<ReturnType<typeof api.getCurrentJob>>) => void;
+    vi.mocked(api.getCurrentJob).mockReturnValue(new Promise((r) => (resolveJob = r)));
+    const hydrating = sync.hydrateJobFromServer();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(api.getCurrentJob).toHaveBeenCalledTimes(1);
+    sync.resetJobSync();
+    resolveJob({ job: { id: "old-user-job", state: serverState, updatedAt: "now" } });
+    await hydrating;
+    expect(useInvoiceStore.getState().invoices).toEqual([]);
+    vi.mocked(api.getCurrentJob).mockResolvedValue({ job: null });
+    await sync.finishJob({ status: "abandoned" });
+    expect(api.abandonJob).not.toHaveBeenCalled();
+    expect(pendingKeys()).toEqual([]);
+  });
+
+  it("does not adopt the job id of a save that was in flight when the session was reset", async () => {
+    let resolveSave!: (v: Awaited<ReturnType<typeof api.saveCurrentJob>>) => void;
+    vi.mocked(api.saveCurrentJob).mockReturnValue(new Promise((r) => (resolveSave = r)));
+    stop = sync.startJobAutosave();
+    loadInvoices();
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(api.saveCurrentJob).toHaveBeenCalledTimes(1);
+    sync.resetJobSync();
+    resolveSave({ id: "old-user-job", updatedAt: "now" });
+    await vi.advanceTimersByTimeAsync(0);
+    useInvoiceStore.setState({ invoices: [], activeInvId: null });
+    vi.mocked(api.getCurrentJob).mockResolvedValue({ job: null });
+    await sync.finishJob({ status: "abandoned" });
+    expect(api.abandonJob).not.toHaveBeenCalled();
+    expect(pendingKeys()).toEqual([]);
+  });
+
+  it("does not schedule a retry for a save that failed after the session was reset", async () => {
+    let rejectSave!: (e: unknown) => void;
+    vi.mocked(api.saveCurrentJob).mockReturnValue(new Promise((_, rej) => (rejectSave = rej)));
+    stop = sync.startJobAutosave();
+    loadInvoices();
+    await vi.advanceTimersByTimeAsync(1000);
+    sync.resetJobSync();
+    rejectSave(new ApiError("boom", 500));
+    await vi.advanceTimersByTimeAsync(20_000);
+    expect(api.saveCurrentJob).toHaveBeenCalledTimes(1);
+    expect(useJobSyncStore.getState().saveState).not.toBe("error");
   });
 });
