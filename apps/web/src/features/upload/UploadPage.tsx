@@ -3,7 +3,7 @@ import { DropZone } from "./DropZone";
 import { useInvoiceProcessor } from "@/hooks/useInvoiceProcessor";
 import { useInvoiceStore } from "@/stores/invoice-store";
 import { Badge } from "@/components/ui/badge";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { InfoBanner } from "@/components/ui/banners";
 import { Card } from "@/components/ui/card";
 import { PageHeader, PageLayout } from "@/components/layout/PageHeader";
@@ -14,6 +14,8 @@ import { InvoiceQueueBadge } from "@/components/workflow/StatusBadge";
 import { lineItemValue } from "@/lib/invoice-charges";
 import { Button } from "@/components/ui/button";
 import { api, type DocumentProcessingJobStatus } from "@/lib/api-client";
+import { finishJob, START_NEW_JOB_CONFIRM } from "@/lib/job-sync";
+import type { JobFinishedNotice, UploadLocationState } from "@/lib/job-state";
 
 const STEPS = [
   "Uploading document…",
@@ -40,6 +42,15 @@ export function UploadPage() {
   const taxInputs = useWorkflowStore((s) => s.taxInputs);
   const taxLog = useWorkflowStore((s) => s.taxLog);
   const navigate = useNavigate();
+  const location = useLocation();
+  const [jobFinished, setJobFinished] = useState<JobFinishedNotice | null>(
+    () => (location.state as UploadLocationState | null)?.jobFinished ?? null,
+  );
+
+  const handleStartNewJob = async () => {
+    if (!window.confirm(START_NEW_JOB_CONFIRM)) return;
+    await finishJob({ status: "abandoned" });
+  };
 
   const handleFile = async (file: File) => {
     setError("");
@@ -139,10 +150,29 @@ export function UploadPage() {
         description="Drop supplier invoices to extract line items and match T&T tariff codes"
         actions={
           invoices.length > 0 ? (
-            <Badge tone="green">{invoices.length} loaded</Badge>
+            <div className="flex items-center gap-2">
+              <Badge tone="green">{invoices.length} loaded</Badge>
+              <Button variant="secondary" className="text-xs" onClick={() => void handleStartNewJob()}>
+                Start new job
+              </Button>
+            </div>
           ) : undefined
         }
       />
+
+      {jobFinished && (
+        <InfoBanner className="mb-4" onDismiss={() => setJobFinished(null)}>
+          {jobFinished.message}
+          {jobFinished.flowboardJobUrl && (
+            <>
+              {" "}
+              <a href={jobFinished.flowboardJobUrl} target="_blank" rel="noreferrer" className="underline">
+                Open in FlowBoard
+              </a>
+            </>
+          )}
+        </InfoBanner>
+      )}
 
       {processing ? (
         <div className="processing-card" aria-live="polite">

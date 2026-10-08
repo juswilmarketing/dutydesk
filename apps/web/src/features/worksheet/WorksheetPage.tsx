@@ -34,6 +34,8 @@ import { buildTaxReportHtml } from "@/lib/export/tax-report";
 import { EmptyState } from "@/components/ui/banners";
 import { syncTeamWorkflow } from "@/lib/workflow-sync";
 import { DutyDeskJobStatusBadge } from "@/components/workflow/StatusBadge";
+import { finishJob, START_NEW_JOB_CONFIRM } from "@/lib/job-sync";
+import type { UploadLocationState } from "@/lib/job-state";
 
 export function WorksheetPage() {
   const user = useAuthStore((s) => s.user);
@@ -254,9 +256,26 @@ export function WorksheetPage() {
       items.map((item) => (item.id === id ? { ...item, selected: !item.selected } : item)),
     );
 
+  const completeAndStartNext = async (
+    jobType: DutyDeskJobType,
+    notice: NonNullable<UploadLocationState["jobFinished"]>,
+  ) => {
+    await finishJob({ status: "sent", jobType, worksheetNum });
+    navigate("/upload", { state: { jobFinished: notice } satisfies UploadLocationState });
+  };
+
+  const handleStartNewJob = async () => {
+    if (!window.confirm(START_NEW_JOB_CONFIRM)) return;
+    await finishJob({ status: "abandoned" });
+    navigate("/upload");
+  };
+
   const handleClassificationSent = () => {
     setJobStatus("completed_directly");
     recordActivity("Classification worksheet sent directly from Duty Desk");
+    void completeAndStartNext("classification_only", {
+      message: `Worksheet ${worksheetNum} sent to the customer. Ready for the next job.`,
+    });
   };
 
   const handleBrokerageSend = async () => {
@@ -333,6 +352,12 @@ export function WorksheetPage() {
       refreshActivity();
       await syncTeamWorkflow().catch(() => null);
       refreshTaxLog();
+      await completeAndStartNext("brokerage_clearance", {
+        message: `Worksheet ${worksheetNum} sent to FlowBoard${
+          result.entry.flowboardReference ? ` (${result.entry.flowboardReference})` : ""
+        }. Ready for the next job.`,
+        flowboardJobUrl: result.flowboardJobUrl || resolveFlowboardJobUrl(result.jobId) || undefined,
+      });
     } catch (e) {
       setJobStatus("failed_flowboard_send");
       setSendError(e instanceof Error ? e.message : "Failed to send to FlowBoard");
@@ -359,7 +384,14 @@ export function WorksheetPage() {
         icon="📋"
         title="Worksheet"
         description="Review totals, then Complete Job once — Classification Only emails from here; Brokerage Clearance sends via FlowBoard"
-        actions={<DutyDeskJobStatusBadge status={jobStatus} />}
+        actions={
+          <div className="flex items-center gap-2">
+            <DutyDeskJobStatusBadge status={jobStatus} />
+            <Button variant="secondary" className="text-xs" onClick={() => void handleStartNewJob()}>
+              Start new job
+            </Button>
+          </div>
+        }
       />
 
       <WorkflowProgress stages={stages} />
