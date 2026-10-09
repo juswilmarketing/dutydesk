@@ -18,7 +18,7 @@ binding = "DOCUMENTS"
 bucket_name = "pas-brokerage-uploads"
 
 [vars]
-ENVIRONMENT = "development"
+ENVIRONMENT = "production"
 SESSION_TTL_HOURS = "24"
 DOC_OCR_BATCH_SIZE = "4"
 DOC_AI_LINE_BATCH_SIZE = "15"

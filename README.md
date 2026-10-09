@@ -31,7 +31,7 @@ npm run dev:worker
 npm run dev
 ```
 
-Seed admin user (dev only):
+Seed admin user (dev only — the seed endpoint is disabled unless `.dev.vars` in the repo root contains `ENVIRONMENT=development`):
 
 ```bash
 curl -X POST http://localhost:8787/api/auth/seed -H "Content-Type: application/json" -d "{\"username\":\"admin\",\"password\":\"changeme\",\"name\":\"Admin\",\"role\":\"admin\"}"

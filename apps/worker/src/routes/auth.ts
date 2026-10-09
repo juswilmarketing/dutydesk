@@ -63,7 +63,7 @@ auth.post("/logout", authMiddleware, async (c) => {
 });
 
 auth.post("/seed", async (c) => {
-  if (c.env.ENVIRONMENT === "production") {
+  if (c.env.ENVIRONMENT !== "development") {
     return c.json({ error: "Not available in production" }, 403);
   }
   const body = await c.req.json<{ username?: string; password?: string; name?: string; role?: string }>();
