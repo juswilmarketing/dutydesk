@@ -321,7 +321,7 @@ const PRODUCT_RULES: ProductRule[] = [
     finishedState: "prepared food",
     physicalForm: "preserved / prepared vegetable",
     partOrComplete: "complete product",
-    likelyChapters: ["20", "07"],
+    likelyChapters: ["20"],
     excludedChapters: ["34", "38", "63", "84", "85"],
     criticalAttrs: [],
     confidence: 0.88,
@@ -514,7 +514,7 @@ export function buildProductClassificationProfile(
     if (!excludedChapters.includes("63")) excludedChapters.push("63");
   }
   if ((rule?.canonical === "shower caps" || /shower\s*cap/i.test(plugin?.canonicalProduct || ""))) {
-    if (/plastic|film/i.test(material)) likelyChapters = ["39", "65"];
+    if (/plastic|film/i.test(material)) likelyChapters = ["39"];
     else if (/rubber/i.test(material)) likelyChapters = ["40", "65"];
     else if (/nonwoven|textile|fabric/i.test(material)) likelyChapters = ["63", "65", "56"];
   }

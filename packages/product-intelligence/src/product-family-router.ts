@@ -88,6 +88,35 @@ function energyRoutesCooking(
   };
 }
 
+type RoutingNarrowing = Pick<FamilyRouteResult, "likelyChapters" | "likelyHeadings" | "preferredHeadings">;
+
+/**
+ * A family lists every plausible chapter/heading; description facts (state, material)
+ * decide which one actually applies. Returns null when the family-wide gate stays as is.
+ */
+function narrowFamilyRouting(
+  family: ProductFamilyDefinition,
+  text: string,
+  material: string | undefined,
+): RoutingNarrowing | null {
+  const pick = (chapters: string[], headings: string[]): RoutingNarrowing => ({
+    likelyChapters: chapters,
+    likelyHeadings: headings,
+    preferredHeadings: headings,
+  });
+  if (family.id === "food_preparations") {
+    // Fresh/chilled tomatoes are 0702; sauces/ketchup are 2103; canned, diced or prepared are 2002.
+    if (/\b(fresh|chilled)\b/i.test(text)) return pick(["07"], ["0702"]);
+    if (/\b(sauces?|ketchup)\b/i.test(text)) return pick(["21", "20"], ["2103", "2002"]);
+    return pick(["20"], ["2002"]);
+  }
+  if (family.id === "headgear" && /plastic|film/i.test(material || "")) {
+    // 6505 is textile headgear and 6307 made-up textile articles; plastic caps are heading 3926.
+    return pick(["39"], ["3926"]);
+  }
+  return null;
+}
+
 /**
  * Route a description (and optional clarification) into a family-scoped retrieval plan.
  */
@@ -157,6 +186,12 @@ export function routeProductFamily(
 
   if (baseFamily.id === "cooking_appliances") {
     routing = { ...routing, ...energyRoutesCooking(energy, baseFamily) };
+  }
+  if (!common) {
+    const narrowed = narrowFamilyRouting(baseFamily, raw, options?.profileHints?.material);
+    if (narrowed) {
+      routing = { ...routing, ...narrowed, hardHeadingGate: narrowed.likelyHeadings.length === 1 };
+    }
   }
 
   // Family-required attributes still missing

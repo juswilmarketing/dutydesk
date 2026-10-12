@@ -1,5 +1,5 @@
 /**
- * Golden regression dataset — product family → chapter/heading gates.
+ * Golden regression dataset â€” product family â†’ chapter/heading gates.
  * Each case asserts identity understanding is connected to retrieval scope.
  */
 
@@ -138,8 +138,9 @@ export const CLASSIFICATION_GOLDENS: ClassificationGolden[] = [
     description: "Shower caps plastic",
     expectedProduct: /shower\s*cap/i,
     expectedFamily: /headgear|shower|plastic/i,
-    expectedChapters: ["39", "65", "63"],
-    prohibitedChapters: ["20", "84", "85"],
+    expectedChapters: ["39"],
+    expectedHeadingPrefix: "3926",
+    prohibitedChapters: ["20", "84", "85", "65", "63"],
   },
   {
     id: "metal-polish",
@@ -197,8 +198,9 @@ export const CLASSIFICATION_GOLDENS: ClassificationGolden[] = [
     description: "Diced tomatoes canned",
     expectedProduct: /tomato|food|vegetable/i,
     expectedFamily: /food|tomato|vegetable/i,
-    expectedChapters: ["20", "07", "21"],
-    prohibitedChapters: ["70", "39", "84"],
+    expectedChapters: ["20"],
+    expectedHeadingPrefix: "2002",
+    prohibitedChapters: ["70", "39", "84", "07"],
   },
   {
     id: "led-driver",
@@ -206,7 +208,8 @@ export const CLASSIFICATION_GOLDENS: ClassificationGolden[] = [
     expectedProduct: /driver|led/i,
     expectedFamily: /electrical|control|protection/i,
     expectedChapters: ["85"],
+    expectedHeadingPrefix: "8504",
     prohibitedChapters: ["20", "63"],
-    prohibitedHeadingPrefixes: ["8501", "8528"],
+    prohibitedHeadingPrefixes: ["8501", "8528", "8536"],
   },
 ];

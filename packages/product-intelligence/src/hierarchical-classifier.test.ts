@@ -112,3 +112,46 @@ describe("hierarchical classifier golden cases", () => {
     }
   });
 });
+
+describe("heading routing narrowed by description facts", () => {
+  it("routes canned/diced tomatoes to chapter 20 and never to fresh 0702", () => {
+    const r = classifyHierarchically("Diced tomatoes canned");
+    expect(r.profile.likelyChapters).toEqual(["20"]);
+    expect(r.candidates.every((c) => c.heading === "2002")).toBe(true);
+  });
+
+  it("routes fresh tomatoes to chapter 07", () => {
+    const r = classifyHierarchically("Fresh tomatoes");
+    expect(r.profile.likelyChapters).toEqual(["07"]);
+    expect(r.candidates.every((c) => c.heading === "0702")).toBe(true);
+  });
+
+  it("keeps tomato ketchup on the sauces chapter", () => {
+    const r = classifyHierarchically("Tomato ketchup");
+    expect(r.profile.likelyChapters).toContain("21");
+  });
+
+  it("routes LED drivers to static converters (8504), never switching apparatus (8536)", () => {
+    const r = classifyHierarchically("LED driver 24V");
+    expect(r.profile.likelyHeadings).toEqual(["8504"]);
+    expect(r.candidates.some((c) => c.heading === "8536")).toBe(false);
+  });
+
+  it("keeps voltage protectors on switching/protecting apparatus (8535/8536)", () => {
+    const r = classifyHierarchically("VOLTAGE PROTECTOR");
+    expect(r.candidates.length).toBeGreaterThan(0);
+    expect(r.candidates.every((c) => ["8535", "8536"].includes(c.heading))).toBe(true);
+  });
+
+  it("routes plastic shower caps to 3926, not textile headgear 6505", () => {
+    const r = classifyHierarchically("PLASTIC SHOWER CAPS");
+    expect(r.profile.likelyChapters).toEqual(["39"]);
+    expect(r.candidates.length).toBeGreaterThan(0);
+    expect(r.candidates.every((c) => c.heading === "3926")).toBe(true);
+  });
+
+  it("keeps non-plastic shower caps on textile headings", () => {
+    const r = classifyHierarchically("NONWOVEN SHOWER CAPS");
+    expect(r.profile.likelyChapters).toEqual(expect.arrayContaining(["63", "65"]));
+  });
+});
