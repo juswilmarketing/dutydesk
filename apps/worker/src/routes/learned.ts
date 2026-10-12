@@ -3,6 +3,7 @@ import type { Env, AppVariables } from "../env";
 import { audit } from "../lib/utils";
 import { normalizeDesc } from "@pas/tariff-data";
 import { nextUses } from "../lib/history-confirmations";
+import { adminMiddleware } from "../middleware/auth";
 
 const learned = new Hono<{ Bindings: Env; Variables: AppVariables }>();
 
@@ -54,14 +55,14 @@ learned.post("/", async (c) => {
   return c.json({ ok: true });
 });
 
-learned.delete("/:key", async (c) => {
+learned.delete("/:key", adminMiddleware, async (c) => {
   const key = decodeURIComponent(c.req.param("key"));
   await c.env.DB.prepare("DELETE FROM learned WHERE normalized_desc = ?").bind(key).run();
   await audit(c, "learned_delete");
   return c.json({ ok: true });
 });
 
-learned.delete("/", async (c) => {
+learned.delete("/", adminMiddleware, async (c) => {
   await c.env.DB.prepare("DELETE FROM learned").run();
   await audit(c, "learned_clear_all");
   return c.json({ ok: true });

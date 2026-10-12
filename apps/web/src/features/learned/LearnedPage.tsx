@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { CSSProperties } from "react";
 import { useInvoiceStore } from "@/stores/invoice-store";
+import { useAuthStore } from "@/stores/auth-store";
 import { api } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
@@ -11,6 +12,7 @@ import { PageHeader, PageLayout } from "@/components/layout/PageHeader";
 export function LearnedPage() {
   const learnedMap = useInvoiceStore((s) => s.learnedMap);
   const setLearnedMap = useInvoiceStore((s) => s.setLearnedMap);
+  const isAdmin = useAuthStore((s) => s.user?.role === "admin");
   const [syncing, setSyncing] = useState(false);
   const [syncMsg, setSyncMsg] = useState("");
 
@@ -108,7 +110,7 @@ export function LearnedPage() {
           <span className="text-base font-bold">Classification History</span>
           <div className="flex items-center gap-2">
             <Badge tone="blue">{entries.length} entries</Badge>
-            {entries.length > 0 && (
+            {isAdmin && entries.length > 0 && (
               <Button
                 variant="ghost"
                 className="h-auto border px-2.5 py-1 text-[11px]"
@@ -135,7 +137,7 @@ export function LearnedPage() {
             <table className="data-table w-full">
               <thead>
                 <tr>
-                  {["Item Description", "Tariff Code", "Duty Rate", "Category", "Used", "Learned On", ""].map((h) => (
+                  {["Item Description", "Tariff Code", "Duty Rate", "Category", "Used", "Learned On", ...(isAdmin ? [""] : [])].map((h) => (
                     <th key={h}>{h}</th>
                   ))}
                 </tr>
@@ -163,15 +165,18 @@ export function LearnedPage() {
                         year: "numeric",
                       })}
                     </td>
-                    <td>
-                      <button
-                        type="button"
-                        onClick={() => deleteEntry(val.normalized_desc)}
-                        className="border-none bg-transparent dd-text-muted hover:opacity-70"
-                      >
-                        ✕
-                      </button>
-                    </td>
+                    {isAdmin && (
+                      <td>
+                        <button
+                          type="button"
+                          onClick={() => deleteEntry(val.normalized_desc)}
+                          aria-label={`Delete learned rule for ${val.normalized_desc}`}
+                          className="border-none bg-transparent dd-text-muted hover:opacity-70"
+                        >
+                          ✕
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -183,7 +188,8 @@ export function LearnedPage() {
       {entries.length > 0 && (
         <InfoBanner tone="warn">
           <strong>How learning works:</strong> Classifications confirmed in Review are saved here and auto-applied to
-          future similar items. Use count tracks frequency. Delete any entry to stop using it.
+          future similar items. Use count tracks frequency.
+          {isAdmin ? " Delete any entry to stop using it." : " Ask an admin to remove an entry."}
         </InfoBanner>
       )}
     </div>
