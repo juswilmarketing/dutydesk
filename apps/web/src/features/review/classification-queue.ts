@@ -140,6 +140,11 @@ export function splitQueue(items: readonly LineItem[]): { exceptions: LineItem[]
   return { exceptions, applied };
 }
 
+/** First line still needing work, else the first line. */
+export function firstOpenLineId(items: readonly LineItem[]): number | null {
+  return (items.find((item) => !isLineApplied(item)) ?? items[0])?.id ?? null;
+}
+
 export function shouldOfferStrongConfirm(
   progress: ClassificationProgress,
   strongCount: number,

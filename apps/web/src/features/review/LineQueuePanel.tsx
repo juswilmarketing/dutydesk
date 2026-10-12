@@ -47,8 +47,9 @@ export function LineQueuePanel({
 }: Props) {
   const { exceptions, applied } = useMemo(() => splitQueue(items), [items]);
   const activeIsApplied = applied.some((i) => i.id === activeId);
-  const [showApplied, setShowApplied] = useState(false);
-  const appliedOpen = showApplied || activeIsApplied;
+  // null = clerk has not chosen yet; follow whether the active line is applied.
+  const [showApplied, setShowApplied] = useState<boolean | null>(null);
+  const appliedOpen = showApplied ?? activeIsApplied;
   const allSelected =
     exceptions.length > 0 && exceptions.every((i) => selectedIds.includes(i.id));
 
@@ -141,7 +142,7 @@ export function LineQueuePanel({
             <button
               type="button"
               className="dd-class-queue-applied-toggle"
-              onClick={() => setShowApplied((v) => !v)}
+              onClick={() => setShowApplied(!appliedOpen)}
               aria-expanded={appliedOpen}
             >
               {appliedOpen ? "▾" : "▸"} {applied.length} applied

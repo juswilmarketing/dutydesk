@@ -24,6 +24,7 @@ import {
 import {
   GENERATION_CONCURRENCY,
   classificationProgress,
+  firstOpenLineId,
   generatingIds,
   groupDuplicates,
   needsSuggestion,
@@ -116,7 +117,7 @@ export function ClassificationWorkspace({
   onStrongConfirmOffered,
   onContinue,
 }: Props) {
-  const [activeId, setActiveId] = useState<number | null>(items[0]?.id ?? null);
+  const [activeId, setActiveId] = useState<number | null>(() => firstOpenLineId(items));
   const [mobileLineOpen, setMobileLineOpen] = useState(false);
   const [recommendationErrors, setRecommendationErrors] = useState<Record<number, string>>({});
   const autoGenerationAttempted = useRef<Set<number>>(new Set());
@@ -136,7 +137,7 @@ export function ClassificationWorkspace({
 
   useEffect(() => {
     if (!items.find((i) => i.id === activeId)) {
-      setActiveId(items[0]?.id ?? null);
+      setActiveId(firstOpenLineId(items));
     }
   }, [items, activeId]);
 

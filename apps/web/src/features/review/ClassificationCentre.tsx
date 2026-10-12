@@ -75,6 +75,7 @@ export function ClassificationCentre({
   const [draft, setDraft] = useState<ClassificationRecommendationCandidate | null>(preferred);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const applied = isLineApplied(item);
+  const openQuestion = applied ? null : question;
   const recFingerprint = recommendationFingerprint(recommendation);
 
   useEffect(() => {
@@ -446,14 +447,14 @@ export function ClassificationCentre({
             </ul>
           </div>
 
-          {question && (
+          {openQuestion && (
             <div className="mt-2 text-[12px]" style={{ color: "var(--text)" }}>
               <strong>Needs confirmation:</strong>{" "}
-              <span className="dd-text-muted">{question.prompt.replace(/\?$/, "")}</span>
+              <span className="dd-text-muted">{openQuestion.prompt.replace(/\?$/, "")}</span>
             </div>
           )}
 
-          {provisional && (
+          {provisional && !applied && (
             <div className="dd-class-warn mt-2 text-[11px]">
               This is a provisional suggestion. Review carefully before applying.
             </div>
@@ -505,7 +506,7 @@ export function ClassificationCentre({
             <Button variant="secondary" onClick={() => setShowAlternatives((v) => !v)}>
               {showAlternatives ? "Hide choices" : "Choose another"}
             </Button>
-            {question && (
+            {openQuestion && (
               <Button
                 variant="secondary"
                 onClick={() => document.getElementById("dd-clarification-question")?.scrollIntoView({ behavior: "smooth", block: "nearest" })}
@@ -559,24 +560,24 @@ export function ClassificationCentre({
         </section>
       ) : null}
 
-      {question && (
+      {openQuestion && (
         <section id="dd-clarification-question" className="dd-class-card">
           <div className="text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: "var(--accent)" }}>
             Answer one question
           </div>
-          <div className="mt-1 text-sm font-semibold">{question.prompt}</div>
+          <div className="mt-1 text-sm font-semibold">{openQuestion.prompt}</div>
           <div className="mt-1 text-[11px] dd-text-muted">
             Suggestions stay visible. Answering only reranks them.
           </div>
           <div className="mt-3 flex flex-wrap gap-1.5">
-            {question.options.map((option) => (
+            {openQuestion.options.map((option) => (
               <button
                 key={option}
                 type="button"
                 className="rounded-full border px-2.5 py-1 text-[11px]"
                 style={{ borderColor: "var(--border)" }}
                 disabled={updating}
-                onClick={() => onGenerateRecommendation({ id: question.id, value: option })}
+                onClick={() => onGenerateRecommendation({ id: openQuestion.id, value: option })}
               >
                 {option}
               </button>

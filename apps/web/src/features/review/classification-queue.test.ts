@@ -5,6 +5,7 @@ import {
   batchApplySummary,
   classificationProgress,
   duplicateKey,
+  firstOpenLineId,
   generatingIds,
   groupDuplicates,
   needsSuggestion,
@@ -218,6 +219,22 @@ describe("strongMatches", () => {
       withRecommendation(3, strong, { classification_status: "Applied" }),
     ];
     expect(strongMatches(items).map((m) => m.item.id)).toEqual([1]);
+  });
+});
+
+describe("firstOpenLineId", () => {
+  it("returns the first line that is not applied", () => {
+    const items = [line(1, { classification_status: "Applied" }), line(2, { classification_status: "AI Applied" }), line(3), line(4)];
+    expect(firstOpenLineId(items)).toBe(3);
+  });
+
+  it("returns the first line when every line is applied", () => {
+    const items = [line(7, { classification_status: "Applied" }), line(8, { classification_status: "Clerk Edited" })];
+    expect(firstOpenLineId(items)).toBe(7);
+  });
+
+  it("returns null for an empty list", () => {
+    expect(firstOpenLineId([])).toBeNull();
   });
 });
 
