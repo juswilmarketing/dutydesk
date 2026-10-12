@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { nextSupplierUsageCount, nextUses } from "./history-confirmations";
+import { historyCodeChanged, historyWording, nextSupplierUsageCount, nextUses } from "./history-confirmations";
 
 describe("nextUses (learned)", () => {
   it("starts a new row at 1", () => {
@@ -35,5 +35,32 @@ describe("nextSupplierUsageCount (supplier history)", () => {
 
   it("resets to 1 when the hs_code changes", () => {
     expect(nextSupplierUsageCount({ hs_code: "7318.15.00", usage_count: 4 }, "7318.16.00")).toBe(1);
+  });
+});
+
+describe("historyCodeChanged (admin edit)", () => {
+  it("is true for a different code", () => {
+    expect(historyCodeChanged("7318.15.00", "7318.16.00")).toBe(true);
+  });
+
+  it("ignores spaces, dots and case", () => {
+    expect(historyCodeChanged("7318.15.00", " 7318 1500 ")).toBe(false);
+    expect(historyCodeChanged("ab12.00", "AB1200")).toBe(false);
+  });
+});
+
+describe("historyWording", () => {
+  it("uses approved wording once the code was hand-applied twice", () => {
+    expect(historyWording(2)).toEqual({
+      reason: "Approved for this item before.",
+      warning: "Suggested from approved history for this item.",
+    });
+  });
+
+  it("is honest about a code applied only once", () => {
+    expect(historyWording(1)).toEqual({
+      reason: "Applied once before for this item — confirm.",
+      warning: "Suggested from a code applied once before for this item.",
+    });
   });
 });

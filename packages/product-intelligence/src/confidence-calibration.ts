@@ -7,6 +7,7 @@ const HISTORY_SCORE = 0.96;
 const UNCONFIRMED_HISTORY_SCORE = 0.75;
 /** Hand-applies of the same code before remembered history counts as approved. */
 export const HISTORY_CONFIRMATIONS_REQUIRED = 2;
+const UNCONFIRMED_HISTORY_SIGNAL = "Applied once before for this item — confirm";
 const MAX_SCORE = 0.98;
 const VAGUE_COVERAGE = 0.5;
 
@@ -43,11 +44,17 @@ export function calibrateConfidence(
       signals.push(HISTORY_SIGNAL[evidence.historyMatch]);
     } else {
       score = UNCONFIRMED_HISTORY_SCORE;
-      signals.push("Applied once before for this item — confirm");
+      signals.push(UNCONFIRMED_HISTORY_SIGNAL);
     }
   } else {
     score = 0.3;
-    if (evidence.historyMatch) signals.push(HISTORY_SIGNAL[evidence.historyMatch]);
+    if (evidence.historyMatch) {
+      signals.push(
+        (evidence.historyConfirmations ?? 0) >= HISTORY_CONFIRMATIONS_REQUIRED
+          ? HISTORY_SIGNAL[evidence.historyMatch]
+          : UNCONFIRMED_HISTORY_SIGNAL,
+      );
+    }
     if (evidence.familyResolved && evidence.compatibilityPassed) {
       score += 0.2;
       signals.push("Product family identified and code is compatible");

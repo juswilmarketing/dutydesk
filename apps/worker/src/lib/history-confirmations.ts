@@ -1,3 +1,5 @@
+import { HISTORY_CONFIRMATIONS_REQUIRED } from "@pas/product-intelligence";
+
 /** Remembered codes count as approved only after the same code is hand-applied twice. */
 
 function key(code: string): string {
@@ -17,4 +19,23 @@ export function nextSupplierUsageCount(
 ): number {
   if (key(existing.hs_code) !== key(code)) return 1;
   return (existing.usage_count || 0) + 1;
+}
+
+/** True when an admin edit swaps in a different code (spaces, dots and case ignored). */
+export function historyCodeChanged(oldCode: string, newCode: string): boolean {
+  return key(oldCode) !== key(newCode);
+}
+
+/** User-visible text for the history-first suggestion; "approved" only once confirmed. */
+export function historyWording(confirmations: number): { reason: string; warning: string } {
+  if (confirmations >= HISTORY_CONFIRMATIONS_REQUIRED) {
+    return {
+      reason: "Approved for this item before.",
+      warning: "Suggested from approved history for this item.",
+    };
+  }
+  return {
+    reason: "Applied once before for this item — confirm.",
+    warning: "Suggested from a code applied once before for this item.",
+  };
 }

@@ -27,6 +27,7 @@ import { validateCandidatesWithExplanatoryNotes } from "../lib/en-validate";
 import { audit } from "../lib/utils";
 import { verifyCandidateWithTtbizlink } from "../lib/ttbizlink";
 import { findHistoryCode } from "../lib/classification-history";
+import { historyWording } from "../lib/history-confirmations";
 import { calibrateCandidate, type EvidenceContext } from "../lib/candidate-evidence";
 import { runSupplierProductSearch } from "./supplier-search";
 
@@ -723,8 +724,9 @@ lines.post("/:lineId/recommendation", async (c) => {
       aiSelectedCode: null,
       aiConfidence: null,
     };
+    const wording = historyWording(history.confirmations);
     const mapped = [
-      mapCandidate(historyCandidate, "Approved for this item before.", 0.96, false),
+      mapCandidate(historyCandidate, wording.reason, 0.96, false),
       ...alternatives.map((h) => mapCandidate(h, scored.find((s) => normalizedCode(s.code) === normalizedCode(h.hs_code))?.supportingFacts?.[0] || "Alternative retrieved tariff candidate.", h.score, false)),
     ];
     const verified = await Promise.all(mapped.map((cand) => verifyCandidateWithTtbizlink(c.env.DB, cand)));
@@ -733,7 +735,7 @@ lines.post("/:lineId/recommendation", async (c) => {
       status: calibrated[0]?.confidenceLabel === "Strong Match" ? "recommended" : "provisional",
       recommendations: calibrated,
       question: null,
-      warnings: [...warnings, "Suggested from approved history for this item."],
+      warnings: [...warnings, wording.warning],
     });
   }
 

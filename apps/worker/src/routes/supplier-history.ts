@@ -3,7 +3,7 @@ import type { Env, AppVariables } from "../env";
 import { normalizeDesc } from "@pas/tariff-data";
 import { normalizeSupplierName } from "@pas/tariff-data";
 import { audit } from "../lib/utils";
-import { nextSupplierUsageCount } from "../lib/history-confirmations";
+import { historyCodeChanged, nextSupplierUsageCount } from "../lib/history-confirmations";
 
 const supplierHistory = new Hono<{ Bindings: Env; Variables: AppVariables }>();
 
@@ -197,8 +197,14 @@ supplierHistory.put("/:id", async (c) => {
   const binds: (string | number)[] = [now];
 
   if (body.hs_code) {
+    const newCode = body.hs_code.trim();
+    const current = await c.env.DB.prepare("SELECT hs_code FROM supplier_classification_history WHERE id = ?")
+      .bind(id)
+      .first<{ hs_code: string }>();
     sets.push("hs_code = ?");
-    binds.push(body.hs_code.trim());
+    binds.push(newCode);
+    // A different code starts over: it must be hand-applied twice before it counts as approved.
+    if (!current || historyCodeChanged(current.hs_code, newCode)) sets.push("usage_count = 1");
   }
   if (body.duty_rate) {
     sets.push("duty_rate = ?");

@@ -76,6 +76,22 @@ describe("calibrateConfidence", () => {
     expect(r.label).not.toBe("Strong Match");
   });
 
+  it("does not call contradicted or conflicting once-applied history approved", () => {
+    const once = { ...base, historyMatch: "learned" as const, historyConfirmations: 1 };
+    for (const r of [
+      calibrateConfidence({ ...once, contradictions: ["x"] }),
+      calibrateConfidence({ ...once, historyConflict: true }),
+    ]) {
+      expect(r.signals).toContain("Applied once before for this item — confirm");
+      expect(r.signals).not.toContain("Matches a code the team approved before");
+    }
+  });
+
+  it("keeps the approved signal on contradicted history that was applied twice", () => {
+    const r = calibrateConfidence({ ...base, historyMatch: "learned", historyConfirmations: 2, contradictions: ["x"] });
+    expect(r.signals).toContain("Matches a code the team approved before");
+  });
+
   it("rates a fully corroborated AI pick as Strong", () => {
     const r = calibrateConfidence(fullyCorroborated);
     expect(r.label).toBe("Strong Match");
