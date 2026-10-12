@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type {
   ClassificationRecommendationCandidate,
   EvidenceProductResolution,
@@ -514,9 +514,12 @@ export function ClassificationWorkspace({
   const [generationPass, setGenerationPass] = useState(0);
   // Latest items/busy for queued groups, which start later than the render that scheduled them.
   const itemsRef = useRef(items);
-  itemsRef.current = items;
   const busyRef = useRef(busyIds);
-  busyRef.current = busyIds;
+  // Sync after every commit (not during render) so the generation effect below reads the committed values.
+  useLayoutEffect(() => {
+    itemsRef.current = items;
+    busyRef.current = busyIds;
+  });
 
   useEffect(() => {
     if (generationRunning.current) return;
@@ -605,7 +608,16 @@ export function ClassificationWorkspace({
   const strong = useMemo(() => strongMatches(items), [items]);
   const showStrongConfirm = shouldOfferStrongConfirm(progress, strong.length, strongConfirmOffered);
 
+  // Keep the modal mounted until the batch finishes: `strong` shrinks as lines apply.
+  const [modalOpen, setModalOpen] = useState(false);
+  useEffect(() => {
+    if (showStrongConfirm) setModalOpen(true);
+  }, [showStrongConfirm]);
+
+  const applyingStrongRef = useRef(false);
   const applyStrong = async (targets: LineItem[]) => {
+    if (applyingStrongRef.current) return;
+    applyingStrongRef.current = true;
     setApplyingStrong(true);
     let applied = 0;
     let skipped = 0;
@@ -621,6 +633,7 @@ export function ClassificationWorkspace({
         else failed += 1;
       }
     } finally {
+      applyingStrongRef.current = false;
       setApplyingStrong(false);
     }
     setBatchMessage(batchApplySummary({ applied, skipped, failed }));
@@ -651,7 +664,7 @@ export function ClassificationWorkspace({
           <Button
             variant="secondary"
             className="h-7 px-2 text-[10px]"
-            disabled={!selectedCanBatchApply}
+            disabled={!selectedCanBatchApply || applyingStrong}
             title={selectedCanBatchApply ? "Apply strong recommendations to selected lines" : "Only strong matches can be batch-applied"}
             onClick={() => void applyStrong(items.filter((i) => selectedIds.includes(i.id)))}
           >
@@ -915,14 +928,22 @@ export function ClassificationWorkspace({
 
       </div>
 
-      {showStrongConfirm && (
+      {modalOpen && (
         <StrongMatchConfirmModal
           matches={strong}
           applying={applyingStrong}
           onApply={(ids) => {
-            void applyStrong(items.filter((i) => ids.includes(i.id))).finally(onStrongConfirmOffered);
+            void applyStrong(items.filter((i) => ids.includes(i.id)))
+              .catch((e) => console.error("[strong-apply]", e))
+              .finally(() => {
+                setModalOpen(false);
+                onStrongConfirmOffered();
+              });
           }}
-          onDismiss={onStrongConfirmOffered}
+          onDismiss={() => {
+            setModalOpen(false);
+            onStrongConfirmOffered();
+          }}
         />
       )}
     </div>

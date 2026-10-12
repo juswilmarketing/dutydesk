@@ -284,6 +284,7 @@ export function ReviewPage() {
               </CardHeader>
 
               <ClassificationWorkspace
+                key={activeInv.id}
                 items={activeInv.items}
                 invId={invId}
                 supplierName={activeInv.meta.supplier}

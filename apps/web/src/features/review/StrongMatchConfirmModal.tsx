@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { strongConfirmTitle, type StrongMatch } from "./classification-queue";
 
@@ -9,10 +9,20 @@ interface Props {
   onDismiss: () => void;
 }
 
+const TITLE_ID = "strong-match-confirm-title";
+
 export function StrongMatchConfirmModal({ matches, applying, onApply, onDismiss }: Props) {
   // Freeze the list at open: `matches` shrinks as lines apply, and rows must not vanish mid-apply.
   const [list] = useState(matches);
   const [checked, setChecked] = useState<Set<number>>(() => new Set(list.map((m) => m.item.id)));
+  useEffect(() => {
+    if (applying) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onDismiss();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [applying, onDismiss]);
   const toggle = (id: number) =>
     setChecked((prev) => {
       const next = new Set(prev);
@@ -22,12 +32,12 @@ export function StrongMatchConfirmModal({ matches, applying, onApply, onDismiss 
     });
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true" aria-labelledby={TITLE_ID}>
       <div
         className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl border p-5 shadow-xl"
         style={{ background: "var(--surface)", borderColor: "var(--border)" }}
       >
-        <h2 className="text-lg font-bold" style={{ color: "var(--accent2)" }}>
+        <h2 id={TITLE_ID} className="text-lg font-bold" style={{ color: "var(--accent2)" }}>
           {strongConfirmTitle(list.length)}
         </h2>
         <ul className="mt-4 space-y-1.5">

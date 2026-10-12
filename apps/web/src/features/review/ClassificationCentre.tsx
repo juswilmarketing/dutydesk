@@ -316,7 +316,7 @@ export function ClassificationCentre({
         </section>
       ) : null}
 
-      {recommendation?.status === "unable_to_classify" && !candidates.length ? (
+      {recommendation?.status === "unable_to_classify" && !candidates.length && !applied ? (
         <section className="dd-class-card">
           <div className="dd-class-warn text-[12.5px]">
             <div className="font-semibold">Unable to classify automatically.</div>
