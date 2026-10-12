@@ -5,7 +5,6 @@ import type {
   ClassificationInterpretation,
   ClassificationRecommendationCandidate,
   ClassificationRecommendationResponse,
-  ConfidenceLabel,
   HeadingCandidate,
   ItemExemptions,
   ProductProfile,
@@ -27,6 +26,8 @@ import { extractJsonFromModelText } from "../lib/extract-json";
 import { validateCandidatesWithExplanatoryNotes } from "../lib/en-validate";
 import { audit } from "../lib/utils";
 import { verifyCandidateWithTtbizlink } from "../lib/ttbizlink";
+import { findHistoryCode } from "../lib/classification-history";
+import { calibrateCandidate, type EvidenceContext } from "../lib/candidate-evidence";
 import { runSupplierProductSearch } from "./supplier-search";
 
 const lines = new Hono<{ Bindings: Env; Variables: AppVariables }>();
@@ -41,13 +42,6 @@ function percent(value: string | number | null | undefined): number {
 
 function normalizedCode(code: string): string {
   return code.replace(/\s/g, "").toUpperCase();
-}
-
-function toConfidenceLabel(score: number, provisional: boolean): ConfidenceLabel {
-  if (provisional || score < 0.45) return "More Information Needed";
-  if (score >= 0.8) return "Strong Match";
-  if (score >= 0.6) return "Likely Match";
-  return "Possible Match";
 }
 
 function mapCandidate(
@@ -69,7 +63,6 @@ function mapCandidate(
     reason,
     source: "ai",
     confidence: score,
-    confidenceLabel: toConfidenceLabel(score, provisional),
     provisional,
   };
 }
@@ -200,9 +193,7 @@ function packResponse(input: {
     ...candidate,
     provisional: statusIsProvisional,
     confidenceLabel: candidate.confidenceLabel
-      || (statusIsProvisional
-        ? (candidate.confidence != null && candidate.confidence >= 0.6 ? "Likely Match" : "Possible Match")
-        : toConfidenceLabel(candidate.confidence ?? 0.5, false)),
+      ?? (statusIsProvisional ? "Possible Match" : "Likely Match"),
   }));
   return {
     status: input.status,
@@ -576,6 +567,22 @@ lines.post("/:lineId/recommendation", async (c) => {
     || Number(hierarchical.profile.familyConfidence ?? hierarchical.profile.knownAttributes?.productFamilyConfidence ?? 0) >= 0.85
     || Boolean(hierarchical.profile.knownAttributes?.commonProductFastPath);
 
+  const historyHit = await findHistoryCode(c.env.DB, supplierName, body.originalDescription).catch(() => null);
+  const supplierApprovedTariff = supplierSearch.status === "exact_internal"
+    ? String(supplierSearch.evidence?.technicalSpecifications?.approvedTariff || "") || null
+    : null;
+  const history: EvidenceContext["history"] = historyHit
+    ? { code: historyHit.code, source: historyHit.source }
+    : supplierApprovedTariff
+      ? { code: supplierApprovedTariff, source: "supplier_evidence" }
+      : null;
+  const evidenceBase: Omit<EvidenceContext, "aiUsed" | "aiSelectedCode" | "aiConfidence"> = {
+    familyResolved: familyKnown,
+    descriptionCoverage: Number(hierarchical.profile.interpretationConfidence ?? 0.5),
+    scored: scored.map((s) => ({ code: s.code, conflicts: s.conflicts ?? [] })),
+    history,
+  };
+
   // Legacy / catalogue fallbacks only when family is unknown (avoids showing motors for displays, etc.)
   if (!candidates.length && !familyKnown) {
     const legacy = qualityCandidates((body.headingCandidates || []).slice(0, 5));
@@ -612,6 +619,122 @@ lines.post("/:lineId/recommendation", async (c) => {
           options: hierarchical.criticalQuestion.options,
         }
       : clarificationFor(interpretation);
+
+  const supplierEvidencePayload: SupplierProductEvidence | null = supplierSearch.evidence
+    ? {
+        supplier: supplierSearch.evidence.supplier,
+        supplierSku: supplierSearch.evidence.supplierSku,
+        canonicalProduct: supplierSearch.evidence.canonicalProduct,
+        material: supplierSearch.evidence.material,
+        composition: supplierSearch.evidence.composition,
+        capacity: supplierSearch.evidence.capacity,
+        dimensions: supplierSearch.evidence.dimensions,
+        technicalSpecifications: supplierSearch.evidence.technicalSpecifications,
+        primaryFunction: supplierSearch.evidence.primaryFunction,
+        intendedUse: supplierSearch.evidence.intendedUse,
+        emptyOrFilled: supplierSearch.evidence.emptyOrFilled,
+        sourceUrl: supplierSearch.evidence.sourceUrl,
+        sourceType: supplierSearch.evidence.sourceType,
+        retrievedAt: supplierSearch.evidence.retrievedAt,
+        evidenceConfidence: supplierSearch.evidence.evidenceConfidence,
+        excerpt: supplierSearch.evidence.excerpt,
+      }
+    : null;
+
+  const persistAndRespond = async (input: {
+    status: SimpleRecommendationStatus;
+    recommendations: ClassificationRecommendationCandidate[];
+    question: ClassificationClarificationQuestion | null;
+    warnings: string[];
+  }) => {
+    if (supplierSearch.notification) input.warnings.push(supplierSearch.notification);
+    const response = packResponse({
+      status: input.status,
+      interpretation,
+      recommendations: input.recommendations,
+      question: input.question,
+      warnings: input.warnings,
+      supplierEvidence: supplierEvidencePayload,
+      supplierSearchStatus: supplierSearch.status,
+      supplierSearchNotification: supplierSearch.notification || null,
+    });
+    response.productProfile = {
+      ...response.productProfile!,
+      identifiedItem: hierarchical.profile.canonicalProduct,
+      material: hierarchical.profile.material || response.productProfile!.material,
+      productFamily: hierarchical.profile.productFamily || response.productProfile!.productFamily,
+      primaryUse: hierarchical.profile.primaryFunction || response.productProfile!.primaryUse,
+    };
+    await c.env.DB.prepare(
+      `INSERT INTO classification_recommendations
+        (line_id, status, recommended_candidate_json, alternatives_json, product_profile_json,
+         resolution_id, evidence_ids_json, generated_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    )
+      .bind(
+        lineId,
+        response.status,
+        JSON.stringify(response.recommendations?.[0] || null),
+        JSON.stringify(response.recommendations?.slice(1) || []),
+        JSON.stringify({
+          ...response.productProfile,
+          classificationProfile: hierarchical.profile,
+          chapters: hierarchical.chapters,
+          retrievalTrace: hierarchical.retrievalTrace,
+          supplierEvidence: supplierEvidencePayload,
+        }),
+        body.resolutionId || null,
+        JSON.stringify(body.evidenceIds || []),
+        c.var.username,
+      )
+      .run();
+    await c.env.DB.prepare(
+      `UPDATE classification_lines
+       SET classification_status = ?, product_profile_json = ?, updated_at = datetime('now') WHERE line_id = ?`,
+    )
+      .bind(
+        response.status === "clarification_needed" ? "More Information Needed" : "Suggestion Ready",
+        JSON.stringify(profileFromEngine),
+        lineId,
+      )
+      .run();
+    return c.json(response);
+  };
+
+  const historyTariff = history
+    ? getNationalLine(history.code) || tariffByCode.get(normalizedCode(history.code))
+    : null;
+  if (history && historyTariff) {
+    const historyCandidate: HeadingCandidate = {
+      hs_code: history.code,
+      heading: normalizedCode(history.code).slice(0, 4),
+      title: historyTariff.desc || "",
+      score: 0.96,
+      duty_rate: historyTariff.duty,
+    };
+    const alternatives = candidates
+      .filter((h) => normalizedCode(h.hs_code) !== normalizedCode(history.code))
+      .slice(0, 2);
+    const historyCtx: EvidenceContext = {
+      ...evidenceBase,
+      descriptionCoverage: 1,
+      aiUsed: false,
+      aiSelectedCode: null,
+      aiConfidence: null,
+    };
+    const mapped = [
+      mapCandidate(historyCandidate, "Approved for this item before.", 0.96, false),
+      ...alternatives.map((h) => mapCandidate(h, scored.find((s) => normalizedCode(s.code) === normalizedCode(h.hs_code))?.supportingFacts?.[0] || "Alternative retrieved tariff candidate.", h.score, false)),
+    ];
+    const verified = await Promise.all(mapped.map((cand) => verifyCandidateWithTtbizlink(c.env.DB, cand)));
+    const calibrated = verified.filter(Boolean).map((cand) => calibrateCandidate(cand, historyCtx, false));
+    return persistAndRespond({
+      status: calibrated[0]?.confidenceLabel === "Strong Match" ? "recommended" : "provisional",
+      recommendations: calibrated,
+      question: null,
+      warnings: [...warnings, "Suggested from approved history for this item."],
+    });
+  }
 
   if (!candidates.length) {
     const response = packResponse({
@@ -659,27 +782,6 @@ lines.post("/:lineId/recommendation", async (c) => {
     scored[0]?.supportingFacts?.[0]
     || "Best retrieved tariff match for the product classification profile.";
   let selectedConfidence = candidates[0]?.score || 0.4;
-
-  const supplierEvidencePayload: SupplierProductEvidence | null = supplierSearch.evidence
-    ? {
-        supplier: supplierSearch.evidence.supplier,
-        supplierSku: supplierSearch.evidence.supplierSku,
-        canonicalProduct: supplierSearch.evidence.canonicalProduct,
-        material: supplierSearch.evidence.material,
-        composition: supplierSearch.evidence.composition,
-        capacity: supplierSearch.evidence.capacity,
-        dimensions: supplierSearch.evidence.dimensions,
-        technicalSpecifications: supplierSearch.evidence.technicalSpecifications,
-        primaryFunction: supplierSearch.evidence.primaryFunction,
-        intendedUse: supplierSearch.evidence.intendedUse,
-        emptyOrFilled: supplierSearch.evidence.emptyOrFilled,
-        sourceUrl: supplierSearch.evidence.sourceUrl,
-        sourceType: supplierSearch.evidence.sourceType,
-        retrievedAt: supplierSearch.evidence.retrievedAt,
-        evidenceConfidence: supplierSearch.evidence.evidenceConfidence,
-        excerpt: supplierSearch.evidence.excerpt,
-      }
-    : null;
 
   try {
     if (c.env.ANTHROPIC_API_KEY && !skipAiForExactInternal) {
@@ -761,6 +863,7 @@ ${JSON.stringify(en.excerptsForPrompt)}`;
         console.warn("[classification] invalid_ai_code", { lineId, rawSelected });
         selected = null;
       }
+      const aiPicked = Boolean(selected);
 
       // If AI abstains or returns invalid JSON, keep retrieval ranking
       if (!selected) {
@@ -807,75 +910,33 @@ ${JSON.stringify(en.excerptsForPrompt)}`;
         ...dbSafe.slice(1).map((candidate) => verifyCandidateWithTtbizlink(c.env.DB, candidate)),
       ]);
       const verified = [verifiedRecommended, ...verifiedAlternatives].filter(Boolean);
+      const aiCtx: EvidenceContext = {
+        ...evidenceBase,
+        aiUsed: Boolean(parsed),
+        aiSelectedCode: aiPicked ? selected!.hs_code : null,
+        aiConfidence: Number.isFinite(parsed?.confidence) ? Number(parsed!.confidence) : null,
+      };
+      const candidateProvisional = provisional || selectedConfidence < 0.55 || !parsed;
+      const calibrated = verified.map((cand) => calibrateCandidate(cand, aiCtx, candidateProvisional));
       const question = engineQuestion;
       const status: SimpleRecommendationStatus = question && provisional
         ? "clarification_needed"
         : provisional || selectedConfidence < 0.55
           ? "provisional"
           : "recommended";
-      if (supplierSearch.notification) warnings.push(supplierSearch.notification);
-      const response = packResponse({
-        status,
-        interpretation,
-        recommendations: verified,
-        question,
-        warnings,
-        supplierEvidence: supplierEvidencePayload,
-        supplierSearchStatus: supplierSearch.status,
-        supplierSearchNotification: supplierSearch.notification || null,
-      });
-      response.productProfile = {
-        ...response.productProfile!,
-        identifiedItem: hierarchical.profile.canonicalProduct,
-        material: hierarchical.profile.material || response.productProfile!.material,
-        productFamily: hierarchical.profile.productFamily || response.productProfile!.productFamily,
-        primaryUse: hierarchical.profile.primaryFunction || response.productProfile!.primaryUse,
-      };
 
       console.log("[classification]", JSON.stringify({
         lineId,
-        finalRecommendations: verified.map((entry) => entry.code),
+        finalRecommendations: calibrated.map((entry) => entry.code),
         status,
         question: question?.id || null,
         recommendationStatus: hierarchical.recommendationStatus,
         supplierSearch: supplierSearch.status,
       }));
 
-      await c.env.DB.prepare(
-        `INSERT INTO classification_recommendations
-          (line_id, status, recommended_candidate_json, alternatives_json, product_profile_json,
-           resolution_id, evidence_ids_json, generated_by)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      )
-        .bind(
-          lineId,
-          status,
-          JSON.stringify(verified[0] || null),
-          JSON.stringify(verified.slice(1)),
-          JSON.stringify({
-            ...response.productProfile,
-            classificationProfile: hierarchical.profile,
-            chapters: hierarchical.chapters,
-            retrievalTrace: hierarchical.retrievalTrace,
-            supplierEvidence: supplierEvidencePayload,
-          }),
-          body.resolutionId || null,
-          JSON.stringify(body.evidenceIds || []),
-          c.var.username,
-        )
-        .run();
-      await c.env.DB.prepare(
-        `UPDATE classification_lines
-         SET classification_status = ?, product_profile_json = ?, updated_at = datetime('now') WHERE line_id = ?`,
-      )
-        .bind(
-          status === "clarification_needed" ? "More Information Needed" : "Suggestion Ready",
-          JSON.stringify(profileFromEngine),
-          lineId,
-        )
-        .run();
+      const aiResponse = await persistAndRespond({ status, recommendations: calibrated, question, warnings });
       await audit(c, "classification_recommendation_generated");
-      return c.json(response);
+      return aiResponse;
     }
 
     // No Anthropic key, or exact internal SKU skip: retrieval-based suggestions.
@@ -902,57 +963,14 @@ ${JSON.stringify(en.excerptsForPrompt)}`;
       recommendations.map((candidate) => verifyCandidateWithTtbizlink(c.env.DB, candidate)),
     );
     const question = skipAiForExactInternal ? null : engineQuestion;
-    if (supplierSearch.notification) warnings.push(supplierSearch.notification);
-    const response = packResponse({
+    const noAiCtx: EvidenceContext = { ...evidenceBase, aiUsed: false, aiSelectedCode: null, aiConfidence: null };
+    const calibrated = verified.map((cand) => calibrateCandidate(cand, noAiCtx, !skipAiForExactInternal || Boolean(question && provisional)));
+    return persistAndRespond({
       status: question && provisional ? "clarification_needed" : skipAiForExactInternal ? "recommended" : "provisional",
-      interpretation,
-      recommendations: verified,
+      recommendations: calibrated,
       question,
       warnings,
-      supplierEvidence: supplierEvidencePayload,
-      supplierSearchStatus: supplierSearch.status,
-      supplierSearchNotification: supplierSearch.notification || null,
     });
-    response.productProfile = {
-      ...response.productProfile!,
-      identifiedItem: hierarchical.profile.canonicalProduct,
-      material: hierarchical.profile.material || response.productProfile!.material,
-      productFamily: hierarchical.profile.productFamily || response.productProfile!.productFamily,
-      primaryUse: hierarchical.profile.primaryFunction || response.productProfile!.primaryUse,
-    };
-    await c.env.DB.prepare(
-      `INSERT INTO classification_recommendations
-        (line_id, status, recommended_candidate_json, alternatives_json, product_profile_json,
-         resolution_id, evidence_ids_json, generated_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    )
-      .bind(
-        lineId,
-        response.status,
-        JSON.stringify(verified[0] || null),
-        JSON.stringify(verified.slice(1)),
-        JSON.stringify({
-          ...response.productProfile,
-          classificationProfile: hierarchical.profile,
-          chapters: hierarchical.chapters,
-          retrievalTrace: hierarchical.retrievalTrace,
-        }),
-        body.resolutionId || null,
-        JSON.stringify(body.evidenceIds || []),
-        c.var.username,
-      )
-      .run();
-    await c.env.DB.prepare(
-      `UPDATE classification_lines
-       SET classification_status = ?, product_profile_json = ?, updated_at = datetime('now') WHERE line_id = ?`,
-    )
-      .bind(
-        question && provisional ? "More Information Needed" : "Suggestion Ready",
-        JSON.stringify(profileFromEngine),
-        lineId,
-      )
-      .run();
-    return c.json(response);
   } catch (error) {
     // On AI failure, prefer already-retrieved hierarchical candidates; never invent codes.
     const recovered = (ranked.length ? ranked : candidates)
