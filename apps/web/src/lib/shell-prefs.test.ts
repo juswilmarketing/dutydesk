@@ -23,6 +23,11 @@ describe("greetingFor", () => {
     expect(greetingFor(at(3), "Marc Wilson")).toBe("Good evening, Marc");
   });
 
+  it("switches to morning at 5:00 and to evening at 17:00", () => {
+    expect(greetingFor(at(5), "Marc Wilson")).toBe("Good morning, Marc");
+    expect(greetingFor(at(17), "Marc Wilson")).toBe("Good evening, Marc");
+  });
+
   it("drops the name when there is none", () => {
     expect(greetingFor(at(9), undefined)).toBe("Good morning");
     expect(greetingFor(at(9), "   ")).toBe("Good morning");
