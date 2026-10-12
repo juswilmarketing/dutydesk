@@ -22,7 +22,9 @@
     "seed:attribute-library": "node scripts/seed-attribute-library.mjs",
     "seed:liquid-composition": "node scripts/seed-liquid-composition.mjs",
     "seed:abbreviations": "node scripts/seed-abbreviations.mjs",
-    "smoke-test": "node scripts/smoke-test.mjs"
+    "smoke-test": "node scripts/smoke-test.mjs",
+    "golden:pull": "node scripts/pull-test-cases.mjs",
+    "golden:check": "npm run test --workspace @pas/worker -- strong-precision"
   },
   "devDependencies": {
     "pdf-parse": "^1.1.1",
