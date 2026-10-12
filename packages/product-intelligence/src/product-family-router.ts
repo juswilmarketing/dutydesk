@@ -88,7 +88,9 @@ function energyRoutesCooking(
   };
 }
 
-type RoutingNarrowing = Pick<FamilyRouteResult, "likelyChapters" | "likelyHeadings" | "preferredHeadings">;
+type RoutingNarrowing = Pick<FamilyRouteResult, "likelyChapters" | "likelyHeadings" | "preferredHeadings"> & {
+  searchTerms?: string[];
+};
 
 /**
  * A family lists every plausible chapter/heading; description facts (state, material)
@@ -104,14 +106,22 @@ function narrowFamilyRouting(
     likelyHeadings: headings,
     preferredHeadings: headings,
   });
+  if (family.id === "food_preparations" && !/\btomato/i.test(text)) {
+    // The family's headings (2002, 0702) and search term "tomatoes" are tomato-specific; other food keeps
+    // the chapter gate only, and must not have "tomatoes" injected into its tariff query.
+    return {
+      ...pick([...family.likelyChapters], []),
+      searchTerms: family.searchTerms.filter((t) => !/tomato/i.test(t)),
+    };
+  }
   if (family.id === "food_preparations") {
     // Fresh/chilled tomatoes are 0702; sauces/ketchup are 2103; canned, diced or prepared are 2002.
     if (/\b(fresh|chilled)\b/i.test(text)) return pick(["07"], ["0702"]);
     if (/\b(sauces?|ketchup)\b/i.test(text)) return pick(["21", "20"], ["2103", "2002"]);
     return pick(["20"], ["2002"]);
   }
-  if (family.id === "headgear" && /plastic|film/i.test(material || "")) {
-    // 6505 is textile headgear and 6307 made-up textile articles; plastic caps are heading 3926.
+  if (family.id === "headgear" && /\bshower\s*caps?\b/i.test(text) && /plastic|film/i.test(material || "")) {
+    // Plastic shower caps are 3926, not textile headgear 6505. Hair nets stay on 6505 whatever the material.
     return pick(["39"], ["3926"]);
   }
   return null;

@@ -1,5 +1,5 @@
 /**
- * Golden regression dataset â€” product family â†’ chapter/heading gates.
+ * Golden regression dataset — product family → chapter/heading gates.
  * Each case asserts identity understanding is connected to retrieval scope.
  */
 

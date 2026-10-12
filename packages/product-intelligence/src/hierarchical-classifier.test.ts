@@ -117,12 +117,14 @@ describe("heading routing narrowed by description facts", () => {
   it("routes canned/diced tomatoes to chapter 20 and never to fresh 0702", () => {
     const r = classifyHierarchically("Diced tomatoes canned");
     expect(r.profile.likelyChapters).toEqual(["20"]);
+    expect(r.profile.likelyHeadings).toEqual(["2002"]);
     expect(r.candidates.every((c) => c.heading === "2002")).toBe(true);
   });
 
   it("routes fresh tomatoes to chapter 07", () => {
     const r = classifyHierarchically("Fresh tomatoes");
     expect(r.profile.likelyChapters).toEqual(["07"]);
+    expect(r.profile.likelyHeadings).toEqual(["0702"]);
     expect(r.candidates.every((c) => c.heading === "0702")).toBe(true);
   });
 
@@ -153,5 +155,30 @@ describe("heading routing narrowed by description facts", () => {
   it("keeps non-plastic shower caps on textile headings", () => {
     const r = classifyHierarchically("NONWOVEN SHOWER CAPS");
     expect(r.profile.likelyChapters).toEqual(expect.arrayContaining(["63", "65"]));
+  });
+});
+
+describe("narrowing is scoped to the product it was written for", () => {
+  it("does not route fresh edible mushrooms to fresh tomatoes (0702)", () => {
+    const r = classifyHierarchically("Fresh edible mushrooms");
+    expect(r.profile.likelyHeadings).not.toEqual(["0702"]);
+    expect(r.candidates.some((c) => c.heading === "0702")).toBe(false);
+  });
+
+  it("does not hard-gate non-tomato food preparations to 2002", () => {
+    const r = classifyHierarchically("Food preparation for infants");
+    expect(r.profile.likelyHeadings).not.toEqual(["2002"]);
+    expect(r.profile.likelyChapters).toEqual(expect.arrayContaining(["20", "21"]));
+  });
+
+  it("does not hard-gate edible coconut oil to 2002", () => {
+    const r = classifyHierarchically("Edible coconut oil");
+    expect(r.profile.likelyHeadings).not.toEqual(["2002"]);
+  });
+
+  it("keeps hair nets (6505, any material) eligible even when plastic", () => {
+    const r = classifyHierarchically("Hair nets plastic");
+    expect(r.profile.likelyChapters).toContain("65");
+    expect(r.profile.likelyHeadings).toContain("6505");
   });
 });
