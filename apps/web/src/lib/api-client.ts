@@ -727,6 +727,9 @@ export const api = {
       total: number;
       by_industry: Array<{ key: string | null; count: number }>;
       by_chapter: Array<{ key: string | null; count: number }>;
+      strong_applied: number;
+      strong_overridden: number;
+      corrections_captured: number;
     }>("/api/product-intelligence/learning-stats"),
 
   getAttributeLibrary: () =>

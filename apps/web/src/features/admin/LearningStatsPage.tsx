@@ -3,6 +3,7 @@ import { api } from "@/lib/api-client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { PageHeader, PageLayout } from "@/components/layout/PageHeader";
+import { overrideRateText } from "./learning-stats";
 
 type ResolverAnalytics = Awaited<ReturnType<typeof api.getProductResolverAnalytics>>;
 
@@ -12,6 +13,7 @@ export function LearningStatsPage() {
   const [byChapter, setByChapter] = useState<Array<{ key: string | null; count: number }>>([]);
   const [loading, setLoading] = useState(false);
   const [resolver, setResolver] = useState<ResolverAnalytics | null>(null);
+  const [correction, setCorrection] = useState({ strongApplied: 0, strongOverridden: 0, captured: 0 });
 
   const load = async () => {
     setLoading(true);
@@ -23,6 +25,11 @@ export function LearningStatsPage() {
       setTotal(data.total);
       setByIndustry(data.by_industry);
       setByChapter(data.by_chapter);
+      setCorrection({
+        strongApplied: data.strong_applied,
+        strongOverridden: data.strong_overridden,
+        captured: data.corrections_captured,
+      });
       setResolver(resolverData);
     } finally {
       setLoading(false);
@@ -45,7 +52,7 @@ export function LearningStatsPage() {
           </Button>
         }
       />
-      <div className="mb-4 grid gap-3 sm:grid-cols-3">
+      <div className="mb-4 grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
         <Card className="p-4">
           <div className="text-[11px] uppercase tracking-wide dd-text-muted">Classification learning events</div>
           <div className="mt-1 text-2xl font-bold">{total}</div>
@@ -57,6 +64,19 @@ export function LearningStatsPage() {
         <Card className="p-4">
           <div className="text-[11px] uppercase tracking-wide dd-text-muted">Unknown product terms</div>
           <div className="mt-1 text-2xl font-bold">{resolver?.unknownProducts.length || 0}</div>
+        </Card>
+        <Card className="p-4">
+          <div className="text-[11px] uppercase tracking-wide dd-text-muted">Strong matches later changed</div>
+          <div className="mt-1 text-2xl font-bold">
+            {overrideRateText(correction.strongApplied, correction.strongOverridden)}
+          </div>
+          <div className="text-xs dd-text-muted">
+            {correction.strongOverridden} of {correction.strongApplied} Strong applies
+          </div>
+        </Card>
+        <Card className="p-4">
+          <div className="text-[11px] uppercase tracking-wide dd-text-muted">Corrections saved as test cases</div>
+          <div className="mt-1 text-2xl font-bold">{correction.captured}</div>
         </Card>
       </div>
       <div className="mb-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">

@@ -744,10 +744,22 @@ admin.get("/learning-stats", async (c) => {
     `SELECT predicted_chapter AS key, COUNT(*) AS count FROM product_learning_events GROUP BY predicted_chapter ORDER BY count DESC LIMIT 50`,
   ).all();
   const total = await c.env.DB.prepare(`SELECT COUNT(*) AS n FROM product_learning_events`).first<{ n: number }>();
+  const correction = await c.env.DB.prepare(
+    `SELECT
+       COALESCE(SUM(CASE WHEN confidence_label = 'Strong Match' THEN 1 ELSE 0 END), 0) AS strong_applied,
+       COALESCE(SUM(CASE WHEN overrode_label = 'Strong Match' THEN 1 ELSE 0 END), 0) AS strong_overridden
+     FROM classification_approvals`,
+  ).first<{ strong_applied: number; strong_overridden: number }>().catch(() => null);
+  const captured = await c.env.DB.prepare(
+    `SELECT COUNT(*) AS n FROM classification_test_cases WHERE source = 'clerk_correction' AND active = 1`,
+  ).first<{ n: number }>().catch(() => null);
   return c.json({
     total: total?.n ?? 0,
     by_industry: byIndustry.results ?? [],
     by_chapter: byChapter.results ?? [],
+    strong_applied: correction?.strong_applied ?? 0,
+    strong_overridden: correction?.strong_overridden ?? 0,
+    corrections_captured: captured?.n ?? 0,
   });
 });
 
