@@ -1,3 +1,4 @@
+import { useMemo, useState } from "react";
 import type { LineItem } from "@pas/shared-types";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/cn";
@@ -8,6 +9,7 @@ import {
   mapRecommendationToLineStatus,
   shortDescription,
 } from "./classification-helpers";
+import { splitQueue } from "./classification-queue";
 
 type Props = {
   items: LineItem[];
@@ -43,14 +45,78 @@ export function LineQueuePanel({
   onToggleSelect,
   onSelectAll,
 }: Props) {
-  const allSelected = items.length > 0 && selectedIds.length === items.length;
-  const ordered = [...items].sort((a, b) => {
-    const unresolved = (item: LineItem) => {
-      const status = normalizeStatus(item);
-      return status === "Applied" || status === "AI Applied" || status === "Clerk Edited" ? 1 : 0;
-    };
-    return unresolved(a) - unresolved(b);
-  });
+  const { exceptions, applied } = useMemo(() => splitQueue(items), [items]);
+  const activeIsApplied = applied.some((i) => i.id === activeId);
+  const [showApplied, setShowApplied] = useState(false);
+  const appliedOpen = showApplied || activeIsApplied;
+  const allSelected =
+    exceptions.length > 0 && exceptions.every((i) => selectedIds.includes(i.id));
+
+  const renderRow = (it: LineItem) => {
+    const idx = items.findIndex((entry) => entry.id === it.id);
+    const preferred = activeSuggestionCandidate(it);
+    const pct = confidencePct(
+      preferred?.confidence
+      ?? it.evidence_resolution?.confidence
+      ?? it.product_resolution?.confidence
+      ?? it.match_confidence
+      ?? it.explainability?.confidence
+      ?? it.predictions?.headings?.[0]?.score,
+    );
+    const interpreted =
+      it.classification_recommendation?.interpretation?.productName
+      || it.evidence_resolution?.resolvedProduct?.displayName
+      || it.evidence_resolution?.resolvedProduct?.canonicalName
+      || it.product_resolution?.selected?.canonicalName;
+    const productStatus = normalizeStatus(it);
+    // Same source as the provisional / best-match card — never a stale tariff_code
+    const preferredCode = preferred?.code || null;
+    const active = it.id === activeId;
+    return (
+      <button
+        key={it.id}
+        type="button"
+        className={cn("dd-class-queue-item", active && "dd-class-queue-item-active")}
+        onClick={() => onSelect(it.id)}
+      >
+        <div className="flex items-start gap-2">
+          <input
+            type="checkbox"
+            checked={selectedIds.includes(it.id)}
+            onClick={(e) => e.stopPropagation()}
+            onChange={() => onToggleSelect(it.id)}
+            className="mt-0.5"
+          />
+          <div className="min-w-0 flex-1 text-left">
+            <div className="flex items-center justify-between gap-1">
+              <span className="text-[11px] font-mono dd-text-muted">#{idx + 1}</span>
+              <span className="text-[10px] font-semibold" style={{ color: pct >= 80 ? "var(--green)" : pct >= 60 ? "var(--gold)" : "var(--red)" }}>
+                {pct}%
+              </span>
+            </div>
+            <div className="truncate text-[12.5px] font-medium" style={{ color: "var(--text)" }}>
+              {shortDescription(it.desc, 42)}
+            </div>
+            {interpreted && (
+              <div className="truncate text-[11px] dd-text-muted">
+                {shortDescription(interpreted, 42)}
+              </div>
+            )}
+            {preferredCode && (
+              <div className="truncate text-[11px] font-mono" style={{ color: "var(--green)" }}>
+                {preferredCode}
+              </div>
+            )}
+            <div className="mt-1">
+              <Badge tone={statusTone(productStatus)}>
+                {productStatus}
+              </Badge>
+            </div>
+          </div>
+        </div>
+      </button>
+    );
+  };
 
   return (
     <aside className="dd-class-queue" aria-label="Invoice line queue">
@@ -60,77 +126,29 @@ export function LineQueuePanel({
           <input
             type="checkbox"
             checked={allSelected}
-            onChange={() => onSelectAll(allSelected ? [] : items.map((i) => i.id))}
+            onChange={() => onSelectAll(allSelected ? [] : exceptions.map((i) => i.id))}
           />
           Select all
         </label>
       </div>
       <div className="dd-class-queue-list">
-        {ordered.map((it) => {
-          const idx = items.findIndex((entry) => entry.id === it.id);
-          const preferred = activeSuggestionCandidate(it);
-          const pct = confidencePct(
-            preferred?.confidence
-            ?? it.evidence_resolution?.confidence
-            ?? it.product_resolution?.confidence
-            ?? it.match_confidence
-            ?? it.explainability?.confidence
-            ?? it.predictions?.headings?.[0]?.score,
-          );
-          const interpreted =
-            it.classification_recommendation?.interpretation?.productName
-            || it.evidence_resolution?.resolvedProduct?.displayName
-            || it.evidence_resolution?.resolvedProduct?.canonicalName
-            || it.product_resolution?.selected?.canonicalName;
-          const productStatus = normalizeStatus(it);
-          // Same source as the provisional / best-match card — never a stale tariff_code
-          const preferredCode = preferred?.code || null;
-          const active = it.id === activeId;
-          return (
+        {exceptions.map(renderRow)}
+        {exceptions.length === 0 && (
+          <div className="p-3 text-[12px] dd-text-muted">No lines need attention.</div>
+        )}
+        {applied.length > 0 && (
+          <>
             <button
-              key={it.id}
               type="button"
-              className={cn("dd-class-queue-item", active && "dd-class-queue-item-active")}
-              onClick={() => onSelect(it.id)}
+              className="dd-class-queue-applied-toggle"
+              onClick={() => setShowApplied((v) => !v)}
+              aria-expanded={appliedOpen}
             >
-              <div className="flex items-start gap-2">
-                <input
-                  type="checkbox"
-                  checked={selectedIds.includes(it.id)}
-                  onClick={(e) => e.stopPropagation()}
-                  onChange={() => onToggleSelect(it.id)}
-                  className="mt-0.5"
-                />
-                <div className="min-w-0 flex-1 text-left">
-                  <div className="flex items-center justify-between gap-1">
-                    <span className="text-[11px] font-mono dd-text-muted">#{idx + 1}</span>
-                    <span className="text-[10px] font-semibold" style={{ color: pct >= 80 ? "var(--green)" : pct >= 60 ? "var(--gold)" : "var(--red)" }}>
-                      {pct}%
-                    </span>
-                  </div>
-                  <div className="truncate text-[12.5px] font-medium" style={{ color: "var(--text)" }}>
-                    {shortDescription(it.desc, 42)}
-                  </div>
-                  {interpreted && (
-                    <div className="truncate text-[11px] dd-text-muted">
-                      {shortDescription(interpreted, 42)}
-                    </div>
-                  )}
-                  {preferredCode && (
-                    <div className="truncate text-[11px] font-mono" style={{ color: "var(--green)" }}>
-                      {preferredCode}
-                    </div>
-                  )}
-                  <div className="mt-1">
-                    <Badge tone={statusTone(productStatus)}>
-                      {productStatus}
-                    </Badge>
-                  </div>
-                </div>
-              </div>
+              {appliedOpen ? "▾" : "▸"} {applied.length} applied
             </button>
-          );
-        })}
+            {appliedOpen && applied.map(renderRow)}
+          </>
+        )}
       </div>
     </aside>
   );

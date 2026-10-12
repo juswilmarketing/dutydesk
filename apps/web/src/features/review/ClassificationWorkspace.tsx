@@ -30,6 +30,7 @@ import {
   needsSuggestion,
   refreshGroup,
   runWithConcurrency,
+  splitQueue,
   batchApplySummary,
   shouldOfferStrongConfirm,
   strongMatches,
@@ -82,6 +83,7 @@ type Props = {
   onNavigateTariffSearch: () => void;
   strongConfirmOffered: boolean;
   onStrongConfirmOffered: () => void;
+  onContinue: () => void;
 };
 
 function preferredCandidate(item: LineItem): ClassificationRecommendationCandidate | null {
@@ -113,6 +115,7 @@ export function ClassificationWorkspace({
   onNavigateTariffSearch,
   strongConfirmOffered,
   onStrongConfirmOffered,
+  onContinue,
 }: Props) {
   const [activeId, setActiveId] = useState<number | null>(items[0]?.id ?? null);
   const [assistantOpen, setAssistantOpen] = useState(false);
@@ -597,6 +600,8 @@ export function ClassificationWorkspace({
     [items, busyIds],
   );
 
+  const queueSplit = useMemo(() => splitQueue(items), [items]);
+  const allClassified = progress.complete && queueSplit.exceptions.length === 0;
   const [batchMessage, setBatchMessage] = useState("");
   const [applyingStrong, setApplyingStrong] = useState(false);
   const strong = useMemo(() => strongMatches(items), [items]);
@@ -629,6 +634,12 @@ export function ClassificationWorkspace({
 
   return (
     <div className="dd-class-workspace">
+      {allClassified && (
+        <div className="dd-class-done-banner" role="status">
+          <strong>All lines classified</strong>
+          <Button onClick={onContinue}>Continue to Duties &amp; Taxes</Button>
+        </div>
+      )}
       <div className="dd-class-batch">
         {!progress.complete && (
           <div className="text-[12px] font-semibold" role="status">

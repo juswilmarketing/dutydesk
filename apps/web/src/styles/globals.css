@@ -902,6 +902,16 @@
   background: var(--accent-light);
   box-shadow: inset 3px 0 0 var(--accent);
 }
+.dd-class-queue-applied-toggle {
+  @apply w-full border-t px-3 py-2 text-left text-[12px] font-semibold;
+  border-color: var(--border);
+  color: var(--text2);
+}
+.dd-class-done-banner {
+  @apply mb-2 flex flex-wrap items-center justify-between gap-2 rounded-lg border px-3 py-2 text-sm;
+  border-color: var(--green);
+  background: var(--surface2);
+}
 .dd-class-centre {
   @apply space-y-3 overflow-y-auto p-3;
   max-height: 75vh;

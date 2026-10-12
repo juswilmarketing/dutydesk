@@ -302,6 +302,7 @@ export function ReviewPage() {
                 persistProductLearning={persistProductLearning}
                 onNavigateSupplierHistory={() => navigate("/admin/supplier-history")}
                 onNavigateTariffSearch={() => navigate("/manual")}
+                onContinue={() => navigate("/duties-taxes")}
                 strongConfirmOffered={Boolean(activeInv.meta.strongConfirmOffered)}
                 onStrongConfirmOffered={() =>
                   setInvoices((p) =>
