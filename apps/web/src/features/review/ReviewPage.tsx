@@ -34,7 +34,6 @@ export function ReviewPage() {
   const setInvoices = useInvoiceStore((s) => s.setInvoices);
   const [showTotalsModal, setShowTotalsModal] = useState(false);
   const [, setItemReview] = useState<Record<number, "approved" | "flagged">>({});
-  const [updatingLine, setUpdatingLine] = useState<number | null>(null);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const taxInputs = useWorkflowStore((s) => s.taxInputs);
   const taxLog = useWorkflowStore((s) => s.taxLog);
@@ -290,7 +289,6 @@ export function ReviewPage() {
                 supplierName={activeInv.meta.supplier}
                 consigneeName={activeInv.meta.to || undefined}
                 shipmentId={activeInv.meta.sourceJobId}
-                updatingLine={updatingLine}
                 selectedIds={selectedIds}
                 setSelectedIds={setSelectedIds}
                 setItemReview={setItemReview}
@@ -304,7 +302,6 @@ export function ReviewPage() {
                 persistProductLearning={persistProductLearning}
                 onNavigateSupplierHistory={() => navigate("/admin/supplier-history")}
                 onNavigateTariffSearch={() => navigate("/manual")}
-                setUpdatingLine={setUpdatingLine}
               />
 
               <div

@@ -22,6 +22,13 @@ import {
   promoteRecommendationCandidate,
   recommendationCandidates,
 } from "./classification-helpers";
+import {
+  GENERATION_CONCURRENCY,
+  classificationProgress,
+  groupDuplicates,
+  needsSuggestion,
+  runWithConcurrency,
+} from "./classification-queue";
 import { api } from "@/lib/api-client";
 import { useInvoiceStore } from "@/stores/invoice-store";
 import { useWorkflowStore } from "@/stores/workflow-store";
@@ -32,7 +39,6 @@ type Props = {
   supplierName?: string;
   consigneeName?: string;
   shipmentId?: string;
-  updatingLine: number | null;
   selectedIds: number[];
   setSelectedIds: (ids: number[]) => void;
   setItemReview: React.Dispatch<React.SetStateAction<Record<number, "approved" | "flagged">>>;
@@ -67,7 +73,6 @@ type Props = {
   ) => Promise<number | void | undefined>;
   onNavigateSupplierHistory: () => void;
   onNavigateTariffSearch: () => void;
-  setUpdatingLine: (id: number | null) => void;
 };
 
 function preferredCandidate(item: LineItem): ClassificationRecommendationCandidate | null {
@@ -84,7 +89,6 @@ export function ClassificationWorkspace({
   supplierName,
   consigneeName,
   shipmentId,
-  updatingLine,
   selectedIds,
   setSelectedIds,
   setItemReview,
@@ -98,7 +102,6 @@ export function ClassificationWorkspace({
   persistProductLearning,
   onNavigateSupplierHistory,
   onNavigateTariffSearch,
-  setUpdatingLine,
 }: Props) {
   const [activeId, setActiveId] = useState<number | null>(items[0]?.id ?? null);
   const [assistantOpen, setAssistantOpen] = useState(false);
@@ -106,6 +109,16 @@ export function ClassificationWorkspace({
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [recommendationErrors, setRecommendationErrors] = useState<Record<number, string>>({});
   const autoGenerationAttempted = useRef<Set<number>>(new Set());
+  const [busyIds, setBusyIds] = useState<ReadonlySet<number>>(() => new Set());
+  const setBusy = useCallback((id: number, busy: boolean) => {
+    setBusyIds((prev) => {
+      if (prev.has(id) === busy) return prev;
+      const next = new Set(prev);
+      if (busy) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  }, []);
   const taxInputs = useWorkflowStore((state) => state.taxInputs);
   const exchangeRate = useInvoiceStore((state) => state.exchangeRate);
   const itemExemptions = useInvoiceStore((state) => state.itemExemptions);
@@ -166,8 +179,8 @@ export function ClassificationWorkspace({
   const generateRecommendation = useCallback(async (
     target: LineItem,
     clarificationAnswer?: { id: string; value: string },
-  ) => {
-    setUpdatingLine(target.id);
+  ): Promise<Partial<LineItem> | null> => {
+    setBusy(target.id, true);
     setRecommendationErrors((errors) => ({ ...errors, [target.id]: "" }));
 
     if (target.line_type && target.line_type !== "merchandise") {
@@ -176,8 +189,8 @@ export function ClassificationWorkspace({
         ...errors,
         [target.id]: `This is a ${target.line_type} line — not merchandise. No tariff recommendation.`,
       }));
-      setUpdatingLine(null);
-      return;
+      setBusy(target.id, false);
+      return null;
     }
 
     // Drop stale suggestion UI immediately so the card cannot lag behind a new run
@@ -189,6 +202,9 @@ export function ClassificationWorkspace({
       let profile = target.product_profile;
       let predictedChapter = target.predictions?.chapter || null;
       let headingCandidates = target.predictions?.headings || [];
+      let predictions = target.predictions;
+      let pendingQuestions = target.pending_questions;
+      let explainability = target.explainability;
 
       // Prefer fresh product intelligence, but never block suggestions if it fails.
       try {
@@ -234,6 +250,9 @@ export function ClassificationWorkspace({
         };
         predictedChapter = analyzed.result.predictions.chapter;
         headingCandidates = analyzed.result.predictions.headings || [];
+        predictions = analyzed.result.predictions;
+        pendingQuestions = analyzed.result.pending_questions;
+        explainability = analyzed.result.explainability;
         editItem(invId, target.id, "product_profile", profile);
         editItem(invId, target.id, "predictions", analyzed.result.predictions);
         editItem(invId, target.id, "pending_questions", analyzed.result.pending_questions);
@@ -276,7 +295,11 @@ export function ClassificationWorkspace({
 
       const top = response.recommendations?.[0] || response.recommendedCandidate || null;
       // One write so line queue + provisional card never read mixed old/new state
-      patchItem(invId, target.id, {
+      const patch: Partial<LineItem> = {
+        product_profile: profile,
+        predictions,
+        pending_questions: pendingQuestions,
+        explainability,
         classification_recommendation: response,
         recommendation_evidence: target.evidence_resolution?.evidence || [],
         classification_status: mapLineStatus(response.status),
@@ -303,15 +326,18 @@ export function ClassificationWorkspace({
               },
             }
           : {}),
-      });
+      };
+      patchItem(invId, target.id, patch);
+      return patch;
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unable to generate recommendation.";
       setRecommendationErrors((errors) => ({ ...errors, [target.id]: message }));
       editItem(invId, target.id, "classification_status", "Failed");
+      return null;
     } finally {
-      setUpdatingLine(null);
+      setBusy(target.id, false);
     }
-  }, [editItem, invId, patchItem, setUpdatingLine, supplierName, consigneeName]);
+  }, [editItem, invId, patchItem, setBusy, supplierName, consigneeName]);
 
   const applyRecommendation = useCallback(async (
     target: LineItem,
@@ -331,7 +357,7 @@ export function ClassificationWorkspace({
     const source = edited
       ? "clerk_edited_ai_recommendation" as const
       : "ai_recommendation" as const;
-    setUpdatingLine(target.id);
+    setBusy(target.id, true);
     setRecommendationErrors((errors) => ({ ...errors, [target.id]: "" }));
     try {
       const appliedResult = await api.applyLineRecommendation(target.id, {
@@ -459,32 +485,70 @@ export function ClassificationWorkspace({
       setRecommendationErrors((errors) => ({ ...errors, [target.id]: message }));
       return false;
     } finally {
-      setUpdatingLine(null);
+      setBusy(target.id, false);
     }
   }, [
     invId,
     patchItem,
     persistProductLearning,
     saveLearnedPair,
+    setBusy,
     setItemReview,
-    setUpdatingLine,
     supplierName,
   ]);
 
-  // Auto-generate suggestions for every line as quickly as possible.
+  // Auto-generate suggestions for pending lines, several at a time; duplicate lines reuse the leader's result.
+  const generationRunning = useRef(false);
+  const [generationPass, setGenerationPass] = useState(0);
+
   useEffect(() => {
-    if (updatingLine !== null) return;
-    const next = items.find((item) => {
-      if (item.classification_recommendation) return false;
-      if (autoGenerationAttempted.current.has(item.id)) return false;
-      const status = item.classification_status || "";
-      if (status === "Applied" || status === "AI Applied" || status === "Clerk Edited") return false;
-      return Boolean(item.desc?.trim());
+    if (generationRunning.current) return;
+    const pending = items.filter(
+      (item) => needsSuggestion(item) && !autoGenerationAttempted.current.has(item.id),
+    );
+    if (!pending.length) return;
+    pending.forEach((item) => autoGenerationAttempted.current.add(item.id));
+    generationRunning.current = true;
+    void runWithConcurrency(
+      groupDuplicates(pending),
+      GENERATION_CONCURRENCY,
+      async ({ leader, followers }) => {
+        followers.forEach((f) => setBusy(f.id, true));
+        try {
+          const shared = await generateRecommendation(leader);
+          for (const follower of followers) {
+            if (shared) {
+              patchItem(invId, follower.id, shared);
+            } else {
+              setRecommendationErrors((errors) => ({
+                ...errors,
+                [follower.id]: "Same description as a line that couldn't be classified.",
+              }));
+              editItem(invId, follower.id, "classification_status", "Failed");
+            }
+          }
+        } finally {
+          followers.forEach((f) => setBusy(f.id, false));
+        }
+      },
+      ({ leader, followers }, error) => {
+        // Must not throw: a throwing handler would abort the whole batch.
+        try {
+          console.warn("[classification] suggestion run failed", error);
+          const message = error instanceof Error ? error.message : "Unable to generate recommendation.";
+          for (const line of [leader, ...followers]) {
+            setRecommendationErrors((errors) => ({ ...errors, [line.id]: message }));
+            editItem(invId, line.id, "classification_status", "Failed");
+          }
+        } catch (handlerError) {
+          console.warn("[classification] could not record suggestion failure", handlerError);
+        }
+      },
+    ).finally(() => {
+      generationRunning.current = false;
+      setGenerationPass((n) => n + 1);
     });
-    if (!next) return;
-    autoGenerationAttempted.current.add(next.id);
-    void generateRecommendation(next);
-  }, [generateRecommendation, items, updatingLine]);
+  }, [editItem, generateRecommendation, generationPass, invId, items, patchItem, setBusy]);
 
   const batchApply = async () => {
     const selected = items.filter((i) => selectedIds.includes(i.id));
@@ -511,6 +575,8 @@ export function ClassificationWorkspace({
     });
   }, [selectedIds, items]);
 
+  const progress = useMemo(() => classificationProgress(items, busyIds), [items, busyIds]);
+
   if (!activeItem) {
     return <div className="p-6 text-sm dd-text-muted">No line items on this invoice.</div>;
   }
@@ -518,6 +584,11 @@ export function ClassificationWorkspace({
   return (
     <div className="dd-class-workspace">
       <div className="dd-class-batch">
+        {!progress.complete && (
+          <div className="text-[12px] font-semibold" role="status">
+            Classifying {progress.ready} of {progress.total} lines…
+          </div>
+        )}
         <div className="text-[12px] dd-text-muted">
           {selectedIds.length ? `${selectedIds.length} selected` : "Select lines for batch actions"}
         </div>
@@ -578,7 +649,7 @@ export function ClassificationWorkspace({
           <ClassificationCentre
             item={activeItem}
             lineIndex={activeIndex}
-            updating={updatingLine === activeItem.id}
+            updating={busyIds.has(activeItem.id)}
             recommendationError={recommendationErrors[activeItem.id]}
             onEditField={(field, value) => editItem(invId, activeItem.id, field, value)}
             onEditProfileField={(field, value) => {
@@ -633,7 +704,8 @@ export function ClassificationWorkspace({
             }}
             onSearchSupplierAgain={() => {
               void (async () => {
-                setUpdatingLine(activeItem.id);
+                const lineId = activeItem.id;
+                setBusy(lineId, true);
                 try {
                   const result = await api.searchSupplierProduct({
                     supplier: supplierName,
@@ -676,7 +748,7 @@ export function ClassificationWorkspace({
                   const message = error instanceof Error ? error.message : "Supplier search failed.";
                   setRecommendationErrors((errors) => ({ ...errors, [activeItem.id]: message }));
                 } finally {
-                  setUpdatingLine(null);
+                  setBusy(lineId, false);
                 }
               })();
             }}
@@ -783,18 +855,19 @@ export function ClassificationWorkspace({
         <div className="dd-class-assistant-desktop">
           <AiAssistantPanel
             item={activeItem}
-            updating={updatingLine === activeItem.id}
+            updating={busyIds.has(activeItem.id)}
             answers={activeItem.question_answers ?? []}
             onAnswer={(answers) => setLineAnswers(invId, activeItem.id, answers)}
             onUpdateClassification={async () => {
-              setUpdatingLine(activeItem.id);
+              const lineId = activeItem.id;
+              setBusy(lineId, true);
               try {
                 const latest = { ...activeItem, question_answers: activeItem.question_answers ?? [] };
                 await reanalyzeLine(invId, latest, latest.question_answers ?? [], supplierName);
-                autoGenerationAttempted.current.delete(activeItem.id);
+                autoGenerationAttempted.current.delete(lineId);
                 await generateRecommendation(latest);
               } finally {
-                setUpdatingLine(null);
+                setBusy(lineId, false);
               }
             }}
             onSearchSupplierHistory={onNavigateSupplierHistory}
@@ -814,17 +887,18 @@ export function ClassificationWorkspace({
             </div>
             <AiAssistantPanel
               item={activeItem}
-              updating={updatingLine === activeItem.id}
+              updating={busyIds.has(activeItem.id)}
               answers={activeItem.question_answers ?? []}
               onAnswer={(answers) => setLineAnswers(invId, activeItem.id, answers)}
               onUpdateClassification={async () => {
-                setUpdatingLine(activeItem.id);
+                const lineId = activeItem.id;
+                setBusy(lineId, true);
                 try {
                   await reanalyzeLine(invId, activeItem, activeItem.question_answers ?? [], supplierName);
-                  autoGenerationAttempted.current.delete(activeItem.id);
+                  autoGenerationAttempted.current.delete(lineId);
                   await generateRecommendation(activeItem);
                 } finally {
-                  setUpdatingLine(null);
+                  setBusy(lineId, false);
                 }
               }}
               onSearchSupplierHistory={() => {
@@ -839,14 +913,14 @@ export function ClassificationWorkspace({
       <div className="dd-class-sticky-actions">
         <Button
           className="h-9 flex-1 text-[12px]"
-          disabled={updatingLine === activeItem.id}
+          disabled={busyIds.has(activeItem.id)}
           onClick={() => {
             const candidate = preferredCandidate(activeItem);
             if (candidate) void applyRecommendation(activeItem, candidate, false);
             else void generateRecommendation(activeItem);
           }}
         >
-          {updatingLine === activeItem.id
+          {busyIds.has(activeItem.id)
             ? (preferredCandidate(activeItem) ? "Applying..." : "Generating...")
             : preferredCandidate(activeItem)
               ? "Apply Recommendation"
