@@ -31,7 +31,7 @@ import { findHistoryCode } from "../lib/classification-history";
 import { historyWording } from "../lib/history-confirmations";
 import { aiResponseStatus } from "../lib/ai-response-status";
 import { calibrateCandidate, type EvidenceContext } from "../lib/candidate-evidence";
-import { detectCorrection, suggestedTop } from "../lib/correction-capture";
+import { codeDigits, detectCorrection, suggestedTop } from "../lib/correction-capture";
 import { runSupplierProductSearch } from "./supplier-search";
 
 const lines = new Hono<{ Bindings: Env; Variables: AppVariables }>();
@@ -1087,13 +1087,16 @@ lines.post("/:lineId/apply-recommendation", async (c) => {
     .bind(lineId)
     .first<{ id: number; resolution_id: number | null; recommended_candidate_json: string | null }>();
 
-  const previousApproval = existing
+  // Soft-created rows ('unsaved') carry a tariff description, not the clerk's real description.
+  const capturesCorrections = !!existing && String(existing.invoice_id ?? "") !== "unsaved";
+  const previousApproval = capturesCorrections
     ? await c.env.DB.prepare(
-      `SELECT confidence_label FROM classification_approvals WHERE line_id = ? ORDER BY id DESC LIMIT 1`,
-    ).bind(lineId).first<{ confidence_label: ConfidenceLabel | null }>()
+      `SELECT confidence_label FROM classification_approvals
+       WHERE line_id = ? AND selected_tariff = ? ORDER BY id DESC LIMIT 1`,
+    ).bind(lineId, String(existing!.tariff_code ?? "")).first<{ confidence_label: ConfidenceLabel | null }>()
     : null;
   const suggestion = suggestedTop(latestRecommendation?.recommended_candidate_json);
-  const correction = existing
+  const correction = capturesCorrections
     ? detectCorrection({
       description: String(existing.original_description || ""),
       supplier: null,
@@ -1184,8 +1187,9 @@ lines.post("/:lineId/apply-recommendation", async (c) => {
       c.env.DB.prepare(
         `UPDATE classification_test_cases SET active = 0
          WHERE source = 'clerk_correction' AND active = 1
-           AND upper(trim(raw_description)) = upper(trim(?)) AND expected_tariff <> ?`,
-      ).bind(correction.rawDescription, correction.expectedTariff),
+           AND upper(trim(raw_description)) = upper(trim(?))
+           AND replace(replace(expected_tariff, '.', ''), ' ', '') <> ?`,
+      ).bind(correction.rawDescription, codeDigits(correction.expectedTariff)),
       c.env.DB.prepare(
         `INSERT INTO classification_test_cases
           (raw_description, supplier, expected_chapter, expected_heading, expected_tariff,
@@ -1193,7 +1197,8 @@ lines.post("/:lineId/apply-recommendation", async (c) => {
          SELECT ?, ?, ?, ?, ?, ?, ?, 'clerk_correction', ?, ?
          WHERE NOT EXISTS (
            SELECT 1 FROM classification_test_cases
-           WHERE active = 1 AND upper(trim(raw_description)) = upper(trim(?)) AND expected_tariff = ?
+           WHERE active = 1 AND upper(trim(raw_description)) = upper(trim(?))
+             AND replace(replace(expected_tariff, '.', ''), ' ', '') = ?
          )`,
       ).bind(
         correction.rawDescription,
@@ -1206,7 +1211,7 @@ lines.post("/:lineId/apply-recommendation", async (c) => {
         correction.replacedCode,
         correction.replacedLabel,
         correction.rawDescription,
-        correction.expectedTariff,
+        codeDigits(correction.expectedTariff),
       ),
     );
   }
