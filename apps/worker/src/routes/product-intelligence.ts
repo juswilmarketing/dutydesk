@@ -749,10 +749,10 @@ admin.get("/learning-stats", async (c) => {
        COALESCE(SUM(CASE WHEN confidence_label = 'Strong Match' THEN 1 ELSE 0 END), 0) AS strong_applied,
        COALESCE(SUM(CASE WHEN overrode_label = 'Strong Match' THEN 1 ELSE 0 END), 0) AS strong_overridden
      FROM classification_approvals`,
-  ).first<{ strong_applied: number; strong_overridden: number }>().catch(() => null);
+  ).first<{ strong_applied: number; strong_overridden: number }>();
   const captured = await c.env.DB.prepare(
     `SELECT COUNT(*) AS n FROM classification_test_cases WHERE source = 'clerk_correction' AND active = 1`,
-  ).first<{ n: number }>().catch(() => null);
+  ).first<{ n: number }>();
   return c.json({
     total: total?.n ?? 0,
     by_industry: byIndustry.results ?? [],
