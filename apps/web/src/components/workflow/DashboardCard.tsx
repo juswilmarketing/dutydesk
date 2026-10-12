@@ -1,5 +1,15 @@
 import { cn } from "@/lib/cn";
 
+type Tone = "default" | "blue" | "green" | "gold" | "red";
+
+const TONE_CLASS: Record<Tone, string> = {
+  default: "",
+  blue: "dd-metric-card-blue",
+  green: "dd-metric-card-green",
+  gold: "dd-metric-card-gold",
+  red: "dd-metric-card-red",
+};
+
 export function DashboardCard({
   title,
   value,
@@ -10,7 +20,7 @@ export function DashboardCard({
   title: string;
   value: number | string;
   subtitle?: string;
-  tone?: "default" | "blue" | "green" | "gold" | "red";
+  tone?: Tone;
   onClick?: () => void;
 }) {
   const Tag = onClick ? "button" : "div";
@@ -21,7 +31,7 @@ export function DashboardCard({
       className={cn(
         "dd-metric-card text-left",
         onClick && "cursor-pointer transition hover:shadow-md",
-        tone !== "default" && `dd-metric-card-${tone}`,
+        TONE_CLASS[tone],
       )}
     >
       <div className="text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--text2)" }}>
