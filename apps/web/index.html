@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en" data-theme="light">
   <head>
     <meta charset="UTF-8" />
     <meta
@@ -16,6 +16,12 @@
     <meta name="apple-mobile-web-app-title" content="DutyDesk" />
     <meta name="format-detection" content="telephone=no" />
     <title>DutyDesk — Customs Tariff Classifier</title>
+    <script>
+      try {
+        var t = JSON.parse(localStorage.getItem('dutydesk-theme')).state.theme;
+        if (t === 'dark' || t === 'light') document.documentElement.dataset.theme = t;
+      } catch (e) {}
+    </script>
     <link rel="icon" href="/favicon.ico" sizes="32x32" />
     <link rel="icon" href="/icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
