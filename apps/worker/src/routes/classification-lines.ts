@@ -5,6 +5,7 @@ import type {
   ClassificationInterpretation,
   ClassificationRecommendationCandidate,
   ClassificationRecommendationResponse,
+  ConfidenceLabel,
   HeadingCandidate,
   ItemExemptions,
   ProductProfile,
@@ -30,6 +31,7 @@ import { findHistoryCode } from "../lib/classification-history";
 import { historyWording } from "../lib/history-confirmations";
 import { aiResponseStatus } from "../lib/ai-response-status";
 import { calibrateCandidate, type EvidenceContext } from "../lib/candidate-evidence";
+import { detectCorrection, suggestedTop } from "../lib/correction-capture";
 import { runSupplierProductSearch } from "./supplier-search";
 
 const lines = new Hono<{ Bindings: Env; Variables: AppVariables }>();
@@ -1079,11 +1081,30 @@ lines.post("/:lineId/apply-recommendation", async (c) => {
   }
 
   const latestRecommendation = await c.env.DB.prepare(
-    `SELECT id, resolution_id FROM classification_recommendations
+    `SELECT id, resolution_id, recommended_candidate_json FROM classification_recommendations
      WHERE line_id = ? ORDER BY created_at DESC LIMIT 1`,
   )
     .bind(lineId)
-    .first<{ id: number; resolution_id: number | null }>();
+    .first<{ id: number; resolution_id: number | null; recommended_candidate_json: string | null }>();
+
+  const previousApproval = existing
+    ? await c.env.DB.prepare(
+      `SELECT confidence_label FROM classification_approvals WHERE line_id = ? ORDER BY id DESC LIMIT 1`,
+    ).bind(lineId).first<{ confidence_label: ConfidenceLabel | null }>()
+    : null;
+  const suggestion = suggestedTop(latestRecommendation?.recommended_candidate_json);
+  const correction = existing
+    ? detectCorrection({
+      description: String(existing.original_description || ""),
+      supplier: null,
+      appliedCode: knownTariff?.code || candidate.code,
+      previousStatus: existing.classification_status ? String(existing.classification_status) : null,
+      previousCode: existing.tariff_code ? String(existing.tariff_code) : null,
+      previousLabel: previousApproval?.confidence_label ?? null,
+      suggestedCode: suggestion?.code ?? null,
+      suggestedLabel: suggestion?.label ?? null,
+    })
+    : null;
 
   // Duty/VAT must come from the tariff database for the selected code — never invent rates.
   const dbDuty = percent(knownTariff?.duty ?? candidate.dutyRate);
@@ -1097,7 +1118,7 @@ lines.post("/:lineId/apply-recommendation", async (c) => {
     recommendation_source: source,
     official_verification: candidate.officialVerification,
   };
-  await c.env.DB.batch([
+  const statements: D1PreparedStatement[] = [
     c.env.DB.prepare(
       `UPDATE classification_lines SET
          tariff_code = ?,
@@ -1140,8 +1161,9 @@ lines.post("/:lineId/apply-recommendation", async (c) => {
     c.env.DB.prepare(
       `INSERT INTO classification_approvals
         (line_id, recommendation_id, resolution_id, product_master_id, selected_tariff,
-         source, evidence_ids_json, approved_by, previous_value_json, approved_value_json)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         source, evidence_ids_json, approved_by, previous_value_json, approved_value_json,
+         confidence_label, overrode_label)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ).bind(
       lineId,
       latestRecommendation?.id || null,
@@ -1153,8 +1175,42 @@ lines.post("/:lineId/apply-recommendation", async (c) => {
       c.var.username,
       JSON.stringify(lineRow),
       JSON.stringify(after),
+      body.candidate.confidenceLabel ?? null,
+      correction?.kind === "changed_applied" ? correction.replacedLabel : null,
     ),
-  ]);
+  ];
+  if (correction) {
+    statements.push(
+      c.env.DB.prepare(
+        `UPDATE classification_test_cases SET active = 0
+         WHERE source = 'clerk_correction' AND active = 1
+           AND upper(trim(raw_description)) = upper(trim(?)) AND expected_tariff <> ?`,
+      ).bind(correction.rawDescription, correction.expectedTariff),
+      c.env.DB.prepare(
+        `INSERT INTO classification_test_cases
+          (raw_description, supplier, expected_chapter, expected_heading, expected_tariff,
+           notes, approved_by, source, replaced_code, replaced_label)
+         SELECT ?, ?, ?, ?, ?, ?, ?, 'clerk_correction', ?, ?
+         WHERE NOT EXISTS (
+           SELECT 1 FROM classification_test_cases
+           WHERE active = 1 AND upper(trim(raw_description)) = upper(trim(?)) AND expected_tariff = ?
+         )`,
+      ).bind(
+        correction.rawDescription,
+        correction.supplier,
+        correction.expectedChapter,
+        correction.expectedHeading,
+        correction.expectedTariff,
+        correction.notes,
+        c.var.username,
+        correction.replacedCode,
+        correction.replacedLabel,
+        correction.rawDescription,
+        correction.expectedTariff,
+      ),
+    );
+  }
+  await c.env.DB.batch(statements);
   if (body.productMasterId) {
     await c.env.DB.prepare(
       `UPDATE product_master SET
