@@ -8,14 +8,20 @@ const UNCONFIRMED_HISTORY_SCORE = 0.75;
 /** Hand-applies of the same code before remembered history counts as approved. */
 export const HISTORY_CONFIRMATIONS_REQUIRED = 2;
 const UNCONFIRMED_HISTORY_SIGNAL = "Applied once before for this item — confirm";
+const SUPPLIER_RECORD_SIGNAL = "Matches this supplier's product record — confirm";
 const MAX_SCORE = 0.98;
 const VAGUE_COVERAGE = 0.5;
 
 const HISTORY_SIGNAL: Record<NonNullable<CandidateEvidence["historyMatch"]>, string> = {
   supplier_history: "Matches approved supplier history",
   learned: "Matches a code the team approved before",
-  supplier_evidence: "Matches approved supplier product record",
+  supplier_evidence: SUPPLIER_RECORD_SIGNAL,
 };
+
+function historySignal(match: NonNullable<CandidateEvidence["historyMatch"]>, confirmations: number): string {
+  if (match === "supplier_evidence") return SUPPLIER_RECORD_SIGNAL;
+  return confirmations >= HISTORY_CONFIRMATIONS_REQUIRED ? HISTORY_SIGNAL[match] : UNCONFIRMED_HISTORY_SIGNAL;
+}
 
 export function labelForScore(score: number): ConfidenceLabel {
   if (score >= STRONG_MATCH_THRESHOLD) return "Strong Match";
@@ -38,22 +44,18 @@ export function calibrateConfidence(
   let historyShortCircuit = false;
 
   if (evidence.historyMatch && !contradicted && !evidence.historyConflict) {
-    if ((evidence.historyConfirmations ?? 0) >= HISTORY_CONFIRMATIONS_REQUIRED) {
+    const confirmations = evidence.historyConfirmations ?? 0;
+    signals.push(historySignal(evidence.historyMatch, confirmations));
+    if (confirmations >= HISTORY_CONFIRMATIONS_REQUIRED) {
       historyShortCircuit = true;
       score = HISTORY_SCORE;
-      signals.push(HISTORY_SIGNAL[evidence.historyMatch]);
     } else {
       score = UNCONFIRMED_HISTORY_SCORE;
-      signals.push(UNCONFIRMED_HISTORY_SIGNAL);
     }
   } else {
     score = 0.3;
     if (evidence.historyMatch) {
-      signals.push(
-        (evidence.historyConfirmations ?? 0) >= HISTORY_CONFIRMATIONS_REQUIRED
-          ? HISTORY_SIGNAL[evidence.historyMatch]
-          : UNCONFIRMED_HISTORY_SIGNAL,
-      );
+      signals.push(historySignal(evidence.historyMatch, evidence.historyConfirmations ?? 0));
     }
     if (evidence.familyResolved && evidence.compatibilityPassed) {
       score += 0.2;

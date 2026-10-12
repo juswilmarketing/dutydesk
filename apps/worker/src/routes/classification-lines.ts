@@ -28,6 +28,7 @@ import { audit } from "../lib/utils";
 import { verifyCandidateWithTtbizlink } from "../lib/ttbizlink";
 import { findHistoryCode } from "../lib/classification-history";
 import { historyWording } from "../lib/history-confirmations";
+import { aiResponseStatus } from "../lib/ai-response-status";
 import { calibrateCandidate, type EvidenceContext } from "../lib/candidate-evidence";
 import { runSupplierProductSearch } from "./supplier-search";
 
@@ -724,7 +725,7 @@ lines.post("/:lineId/recommendation", async (c) => {
       aiSelectedCode: null,
       aiConfidence: null,
     };
-    const wording = historyWording(history.confirmations);
+    const wording = historyWording(history.confirmations, history.source);
     const mapped = [
       mapCandidate(historyCandidate, wording.reason, 0.96, false),
       ...alternatives.map((h) => mapCandidate(h, scored.find((s) => normalizedCode(s.code) === normalizedCode(h.hs_code))?.supportingFacts?.[0] || "Alternative retrieved tariff candidate.", h.score, false)),
@@ -917,16 +918,12 @@ ${JSON.stringify(en.excerptsForPrompt)}`;
         ...evidenceBase,
         aiUsed: Boolean(parsed),
         aiSelectedCode: aiPicked ? selected!.hs_code : null,
-        aiConfidence: Number.isFinite(parsed?.confidence) ? Number(parsed!.confidence) : null,
+        aiConfidence: aiPicked && Number.isFinite(parsed?.confidence) ? Number(parsed!.confidence) : null,
       };
       const candidateProvisional = provisional || selectedConfidence < 0.55 || !parsed;
       const calibrated = verified.map((cand) => calibrateCandidate(cand, aiCtx, candidateProvisional));
       const question = engineQuestion;
-      const status: SimpleRecommendationStatus = question && provisional
-        ? "clarification_needed"
-        : provisional || selectedConfidence < 0.55
-          ? "provisional"
-          : "recommended";
+      const status = aiResponseStatus({ question, provisional, selectedConfidence, parsed: Boolean(parsed) });
 
       console.log("[classification]", JSON.stringify({
         lineId,

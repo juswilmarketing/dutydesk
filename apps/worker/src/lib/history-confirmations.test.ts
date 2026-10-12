@@ -63,4 +63,18 @@ describe("historyWording", () => {
       warning: "Suggested from a code applied once before for this item.",
     });
   });
+
+  it("uses supplier-record wording for supplier_evidence", () => {
+    const expected = {
+      reason: "Matches this supplier's product record — confirm.",
+      warning: "Suggested from this supplier's product record.",
+    };
+    expect(historyWording(1, "supplier_evidence")).toEqual(expected);
+    expect(historyWording(2, "supplier_evidence")).toEqual(expected);
+  });
+
+  it("keeps history wording for the other sources", () => {
+    expect(historyWording(1, "learned")).toEqual(historyWording(1));
+    expect(historyWording(2, "supplier_history")).toEqual(historyWording(2));
+  });
 });

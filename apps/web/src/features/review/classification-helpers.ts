@@ -601,8 +601,7 @@ export function isAutoApplyable(
   const e = candidate.evidence;
   if (!e) return false;
   if (e.historyConflict || (e.contradictions?.length ?? 0) > 0) return false;
-  // History approved by two hand-applies resolves the upfront line-level questions;
-  // otherwise only an unanswered REQUIRED question blocks (the parser always adds optional ones).
+  // Optional questions never block; unanswered required ones block unless the code is confirmed approved history.
   if (e.historyMatch && (e.historyConfirmations ?? 0) >= HISTORY_CONFIRMATIONS_REQUIRED) return true;
   if (!hasAnsweredRequired(item)) return false;
   return e.familyResolved && e.compatibilityPassed;

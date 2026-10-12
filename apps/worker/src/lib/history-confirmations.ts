@@ -27,7 +27,16 @@ export function historyCodeChanged(oldCode: string, newCode: string): boolean {
 }
 
 /** User-visible text for the history-first suggestion; "approved" only once confirmed. */
-export function historyWording(confirmations: number): { reason: string; warning: string } {
+export function historyWording(
+  confirmations: number,
+  source?: "supplier_history" | "learned" | "supplier_evidence" | null,
+): { reason: string; warning: string } {
+  if (source === "supplier_evidence") {
+    return {
+      reason: "Matches this supplier's product record — confirm.",
+      warning: "Suggested from this supplier's product record.",
+    };
+  }
   if (confirmations >= HISTORY_CONFIRMATIONS_REQUIRED) {
     return {
       reason: "Approved for this item before.",

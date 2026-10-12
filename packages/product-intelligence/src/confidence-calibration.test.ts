@@ -47,6 +47,26 @@ describe("calibrateConfidence", () => {
     expect(r.signals).toContain("Applied once before for this item — confirm");
   });
 
+  it("words a supplier product record honestly: Likely 0.75, own signal, no 'applied before'", () => {
+    const r = calibrateConfidence({ ...base, historyMatch: "supplier_evidence", historyConfirmations: 1 });
+    expect(r.label).toBe("Likely Match");
+    expect(r.score).toBe(0.75);
+    expect(r.signals).toContain("Matches this supplier's product record — confirm");
+    expect(r.signals).not.toContain("Applied once before for this item — confirm");
+    expect(r.signals).not.toContain("Matches approved supplier product record");
+  });
+
+  it("uses the supplier-record signal when that history is contradicted", () => {
+    const r = calibrateConfidence({
+      ...base,
+      historyMatch: "supplier_evidence",
+      historyConfirmations: 1,
+      contradictions: ["x"],
+    });
+    expect(r.signals).toContain("Matches this supplier's product record — confirm");
+    expect(r.signals).not.toContain("Applied once before for this item — confirm");
+  });
+
   it("does not let vague unconfirmed history reach Strong", () => {
     const r = calibrateConfidence({ ...base, historyMatch: "learned", historyConfirmations: 1, descriptionCoverage: 0.3 });
     expect(r.label).toBe("Likely Match");
