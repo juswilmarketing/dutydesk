@@ -56,6 +56,22 @@ describe("calibrateConfidence", () => {
     expect(r.label).toBe("Likely Match");
   });
 
+  it("does not reach Strong without TTBizLink when AI confidence is maxed", () => {
+    const r = calibrateConfidence({ ...fullyCorroborated, officialVerified: false, aiConfidence: 1.0 });
+    expect(r.label).not.toBe("Strong Match");
+    expect(r.score).toBeLessThanOrEqual(0.84);
+  });
+
+  it("does not reach Strong without TTBizLink at high AI confidence", () => {
+    const r = calibrateConfidence({ ...fullyCorroborated, officialVerified: false, aiConfidence: 0.975 });
+    expect(r.label).not.toBe("Strong Match");
+  });
+
+  it("still allows Strong on history path without TTBizLink verification", () => {
+    const r = calibrateConfidence({ ...base, historyMatch: "learned", officialVerified: false });
+    expect(r.label).toBe("Strong Match");
+  });
+
   it("penalises AI disagreeing with the database", () => {
     const agree = calibrateConfidence(fullyCorroborated).score;
     const disagree = calibrateConfidence({ ...fullyCorroborated, dbTopAgrees: false }).score;

@@ -31,8 +31,10 @@ export function calibrateConfidence(
   const signals: string[] = [];
   const contradicted = evidence.contradictions.length > 0;
   let score: number;
+  let historyShortCircuit = false;
 
   if (evidence.historyMatch && !contradicted && !evidence.historyConflict) {
+    historyShortCircuit = true;
     score = HISTORY_SCORE;
     signals.push(HISTORY_SIGNAL[evidence.historyMatch]);
   } else {
@@ -75,6 +77,9 @@ export function calibrateConfidence(
   }
 
   score = clamp(score, 0, MAX_SCORE);
+  if (!historyShortCircuit && !evidence.officialVerified) {
+    score = Math.min(score, STRONG_MATCH_THRESHOLD - 0.01);
+  }
   if (opts.provisional) {
     score = Math.min(score, POSSIBLE_THRESHOLD - 0.01);
     signals.push("Missing product details");
