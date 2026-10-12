@@ -148,5 +148,7 @@ export {
   calibrateConfidence,
   labelForScore,
   STRONG_MATCH_THRESHOLD,
+  NON_HISTORY_STRONG_MIN_SCORE,
   HISTORY_CONFIRMATIONS_REQUIRED,
 } from "./confidence-calibration";
+export { CLASSIFICATION_GOLDENS, type ClassificationGolden } from "./fixtures/classification-goldens";

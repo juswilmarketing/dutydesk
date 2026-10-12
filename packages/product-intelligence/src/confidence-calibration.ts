@@ -1,6 +1,11 @@
 import type { CandidateEvidence, ConfidenceLabel } from "@pas/shared-types";
 
 export const STRONG_MATCH_THRESHOLD = 0.85;
+/**
+ * Minimum calibrated score for a pick without confirmed history to be Strong.
+ * Raise above MAX_SCORE (e.g. 0.99) to make Strong history-only when the golden gate fails.
+ */
+export const NON_HISTORY_STRONG_MIN_SCORE = 0.85;
 const LIKELY_THRESHOLD = 0.6;
 const POSSIBLE_THRESHOLD = 0.45;
 const HISTORY_SCORE = 0.96;
@@ -36,7 +41,7 @@ function clamp(n: number, lo: number, hi: number): number {
 
 export function calibrateConfidence(
   evidence: CandidateEvidence,
-  opts: { provisional?: boolean } = {},
+  opts: { provisional?: boolean; nonHistoryStrongMin?: number } = {},
 ): { score: number; label: ConfidenceLabel; signals: string[] } {
   const signals: string[] = [];
   const contradicted = evidence.contradictions.length > 0;
@@ -94,7 +99,8 @@ export function calibrateConfidence(
   }
 
   score = clamp(score, 0, MAX_SCORE);
-  if (!historyShortCircuit && !evidence.officialVerified) {
+  const nonHistoryStrongMin = opts.nonHistoryStrongMin ?? NON_HISTORY_STRONG_MIN_SCORE;
+  if (!historyShortCircuit && (!evidence.officialVerified || score < nonHistoryStrongMin)) {
     score = Math.min(score, STRONG_MATCH_THRESHOLD - 0.01);
   }
   if (opts.provisional) {

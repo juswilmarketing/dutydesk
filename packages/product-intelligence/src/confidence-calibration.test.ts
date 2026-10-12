@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { CandidateEvidence } from "@pas/shared-types";
-import { calibrateConfidence, HISTORY_CONFIRMATIONS_REQUIRED, STRONG_MATCH_THRESHOLD } from "./confidence-calibration";
+import {
+  calibrateConfidence,
+  HISTORY_CONFIRMATIONS_REQUIRED,
+  NON_HISTORY_STRONG_MIN_SCORE,
+  STRONG_MATCH_THRESHOLD,
+} from "./confidence-calibration";
 
 const base: CandidateEvidence = {
   historyMatch: null,
@@ -179,5 +184,23 @@ describe("calibrateConfidence", () => {
     const lo = calibrateConfidence({ ...base, dbTopAgrees: false, descriptionCoverage: 0, contradictions: ["a"], historyConflict: true }).score;
     expect(hi).toBeLessThanOrEqual(0.98);
     expect(lo).toBeGreaterThanOrEqual(0);
+  });
+
+  it("keeps the non-history Strong minimum at or above the Strong threshold", () => {
+    expect(NON_HISTORY_STRONG_MIN_SCORE).toBeGreaterThanOrEqual(STRONG_MATCH_THRESHOLD);
+  });
+
+  it("caps a fully corroborated non-history pick below Strong when the minimum is raised", () => {
+    const r = calibrateConfidence(fullyCorroborated, { nonHistoryStrongMin: 0.99 });
+    expect(r.label).toBe("Likely Match");
+    expect(r.score).toBe(Math.round((STRONG_MATCH_THRESHOLD - 0.01) * 100) / 100);
+  });
+
+  it("still allows confirmed history to be Strong when the non-history minimum is raised", () => {
+    const r = calibrateConfidence(
+      { ...base, historyMatch: "supplier_history", historyConfirmations: 2 },
+      { nonHistoryStrongMin: 0.99 },
+    );
+    expect(r.label).toBe("Strong Match");
   });
 });
