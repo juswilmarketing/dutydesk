@@ -15,7 +15,7 @@ const variantStyles: Record<keyof typeof variants, React.CSSProperties> = {
     borderColor: "var(--border)",
     color: "var(--text)",
   },
-  ghost: { color: "var(--text2)" },
+  ghost: { color: "var(--text2)", boxShadow: "none" },
   green: { background: "var(--green)" },
 };
 
@@ -29,7 +29,7 @@ export function Button({ className, variant = "primary", style, ...props }: Butt
   return (
     <button
       className={cn(
-        "inline-flex items-center justify-center gap-2 rounded-lg border border-transparent px-5 py-2.5 text-base font-semibold transition disabled:cursor-not-allowed disabled:opacity-50",
+        "inline-flex items-center justify-center gap-2 rounded-lg border border-transparent px-4 py-2 text-sm font-semibold shadow-sm transition disabled:cursor-not-allowed disabled:opacity-50",
         variants[variant],
         className,
       )}
