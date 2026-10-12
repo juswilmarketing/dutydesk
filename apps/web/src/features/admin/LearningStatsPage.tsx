@@ -71,7 +71,7 @@ export function LearningStatsPage() {
             {overrideRateText(correction.strongApplied, correction.strongOverridden)}
           </div>
           <div className="text-xs dd-text-muted">
-            {correction.strongOverridden} of {correction.strongApplied} Strong applies
+            {correction.strongOverridden} of {correction.strongApplied} Strong-matched lines
           </div>
         </Card>
         <Card className="p-4">

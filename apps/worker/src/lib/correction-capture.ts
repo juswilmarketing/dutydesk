@@ -26,6 +26,20 @@ export interface CorrectionCase {
   notes: string;
 }
 
+const CONFIDENCE_LABELS: readonly ConfidenceLabel[] = [
+  "Strong Match",
+  "Likely Match",
+  "Possible Match",
+  "More Information Needed",
+];
+
+/** Returns the value only if it is a known confidence label; client/stored JSON is untrusted. */
+export function asConfidenceLabel(value: unknown): ConfidenceLabel | null {
+  return typeof value === "string" && (CONFIDENCE_LABELS as readonly string[]).includes(value)
+    ? (value as ConfidenceLabel)
+    : null;
+}
+
 export function codeDigits(code: string | null | undefined): string {
   return String(code ?? "").replace(/\D/g, "");
 }
@@ -80,7 +94,7 @@ export function suggestedTop(
     if (!parsed || typeof parsed.code !== "string" || !parsed.code) return null;
     return {
       code: parsed.code,
-      label: typeof parsed.confidenceLabel === "string" ? (parsed.confidenceLabel as ConfidenceLabel) : null,
+      label: asConfidenceLabel(parsed.confidenceLabel),
     };
   } catch {
     return null;

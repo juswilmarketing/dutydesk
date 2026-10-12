@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { codeDigits, detectCorrection, suggestedTop, type CorrectionInput } from "./correction-capture";
+﻿import { describe, expect, it } from "vitest";
+import { asConfidenceLabel, codeDigits, detectCorrection, suggestedTop, type CorrectionInput } from "./correction-capture";
 
 const input = (over: Partial<CorrectionInput> = {}): CorrectionInput => ({
   description: "LED DRIVER 24V",
@@ -101,5 +101,28 @@ describe("suggestedTop", () => {
 
   it("returns a null label when absent", () => {
     expect(suggestedTop(JSON.stringify({ code: "8536.30.00" }))).toEqual({ code: "8536.30.00", label: null });
+  });
+
+  it("returns a null label when the stored label is not a known value", () => {
+    expect(suggestedTop(JSON.stringify({ code: "8536.30.00", confidenceLabel: "Certain" })))
+      .toEqual({ code: "8536.30.00", label: null });
+  });
+});
+
+describe("asConfidenceLabel", () => {
+  it("accepts the four known labels", () => {
+    for (const l of ["Strong Match", "Likely Match", "Possible Match", "More Information Needed"]) {
+      expect(asConfidenceLabel(l)).toBe(l);
+    }
+  });
+
+  it("returns null for anything else", () => {
+    expect(asConfidenceLabel("strong match")).toBeNull();
+    expect(asConfidenceLabel("Certain")).toBeNull();
+    expect(asConfidenceLabel("")).toBeNull();
+    expect(asConfidenceLabel(undefined)).toBeNull();
+    expect(asConfidenceLabel(null)).toBeNull();
+    expect(asConfidenceLabel(42)).toBeNull();
+    expect(asConfidenceLabel({ label: "Strong Match" })).toBeNull();
   });
 });

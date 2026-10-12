@@ -3,6 +3,7 @@ import { CLASSIFICATION_GOLDENS } from "@pas/product-intelligence";
 import { TEST_CASE_ROWS } from "./fixtures/test-cases.generated";
 import { caseFromGolden, caseFromRow, formatReport, strongPrecision, STRONG_PRECISION_TARGET } from "./strong-precision";
 
+// Constraint: cases with no tariff candidate are excluded from precision, so a pass is not proof those items classify correctly.
 describe("golden Strong precision gate", () => {
   it(`labels Strong only when right at least ${STRONG_PRECISION_TARGET * 100}% of the time`, () => {
     const cases = [...CLASSIFICATION_GOLDENS.map(caseFromGolden), ...TEST_CASE_ROWS.map(caseFromRow)];

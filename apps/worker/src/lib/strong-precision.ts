@@ -40,6 +40,9 @@ export interface PrecisionReport {
   correct: number;
   precision: number;
   misses: Array<{ id: string; description: string; code: string; acceptable: string[] }>;
+  /** Cases whose simulated pick returned no code; excluded from precision. */
+  noCandidate: number;
+  noCandidateIds: string[];
 }
 
 const digits = (s: string | null | undefined): string => String(s ?? "").replace(/\D/g, "");
@@ -125,17 +128,34 @@ export function strongPrecision(
   let strong = 0;
   let correct = 0;
   const misses: PrecisionReport["misses"] = [];
+  const noCandidateIds: string[] = [];
   for (const c of cases) {
     const p = pick(c);
+    if (!p.code) noCandidateIds.push(c.id);
     if (p.label !== "Strong Match" || !p.code) continue;
     strong += 1;
     if (isAcceptable(p.code, c)) correct += 1;
     else misses.push({ id: c.id, description: c.description, code: p.code, acceptable: c.acceptable });
   }
-  return { total: cases.length, strong, correct, precision: strong ? correct / strong : 1, misses };
+  return {
+    total: cases.length,
+    strong,
+    correct,
+    precision: strong ? correct / strong : 1,
+    misses,
+    noCandidate: noCandidateIds.length,
+    noCandidateIds,
+  };
 }
 
 export function formatReport(r: PrecisionReport): string {
   const head = `Strong precision ${(r.precision * 100).toFixed(1)}% (${r.correct}/${r.strong} Strong of ${r.total} cases)`;
-  return [head, ...r.misses.map((m) => `  WRONG ${m.code} for "${m.description}" (expected ${m.acceptable.join(" | ")})`)].join("\n");
+  const skipped = r.noCandidate > 0
+    ? [`  No candidate (excluded from precision): ${r.noCandidate} — ${r.noCandidateIds.join(", ")}`]
+    : [];
+  return [
+    head,
+    ...r.misses.map((m) => `  WRONG ${m.code} for "${m.description}" (expected ${m.acceptable.join(" | ")})`),
+    ...skipped,
+  ].join("\n");
 }

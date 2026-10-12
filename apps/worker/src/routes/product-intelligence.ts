@@ -746,8 +746,8 @@ admin.get("/learning-stats", async (c) => {
   const total = await c.env.DB.prepare(`SELECT COUNT(*) AS n FROM product_learning_events`).first<{ n: number }>();
   const correction = await c.env.DB.prepare(
     `SELECT
-       COALESCE(SUM(CASE WHEN confidence_label = 'Strong Match' THEN 1 ELSE 0 END), 0) AS strong_applied,
-       COALESCE(SUM(CASE WHEN overrode_label = 'Strong Match' THEN 1 ELSE 0 END), 0) AS strong_overridden
+       COUNT(DISTINCT CASE WHEN confidence_label = 'Strong Match' THEN line_id END) AS strong_applied,
+       COUNT(DISTINCT CASE WHEN overrode_label = 'Strong Match' THEN line_id END) AS strong_overridden
      FROM classification_approvals`,
   ).first<{ strong_applied: number; strong_overridden: number }>();
   const captured = await c.env.DB.prepare(

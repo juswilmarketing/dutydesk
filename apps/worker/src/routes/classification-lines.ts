@@ -36,7 +36,7 @@ import {
   isProvisionalResult,
   type EvidenceContext,
 } from "../lib/candidate-evidence";
-import { codeDigits, detectCorrection, suggestedTop } from "../lib/correction-capture";
+import { asConfidenceLabel, codeDigits, detectCorrection, suggestedTop } from "../lib/correction-capture";
 import { runSupplierProductSearch } from "./supplier-search";
 
 const lines = new Hono<{ Bindings: Env; Variables: AppVariables }>();
@@ -1177,7 +1177,7 @@ lines.post("/:lineId/apply-recommendation", async (c) => {
       c.var.username,
       JSON.stringify(lineRow),
       JSON.stringify(after),
-      body.candidate.confidenceLabel ?? null,
+      asConfidenceLabel(body.candidate.confidenceLabel),
       correction?.kind === "changed_applied" ? correction.replacedLabel : null,
     ),
   ];

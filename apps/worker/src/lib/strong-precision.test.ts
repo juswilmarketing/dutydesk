@@ -3,6 +3,7 @@ import type { ClassificationGolden } from "@pas/product-intelligence";
 import {
   caseFromGolden,
   caseFromRow,
+  formatReport,
   isAcceptable,
   simulateTopPick,
   strongPrecision,
@@ -105,11 +106,34 @@ describe("strongPrecision", () => {
       correct: 1,
       precision: 0.5,
       misses: [{ id: "b", description: "b", code: "8536.30.00", acceptable: ["8504"] }],
+      noCandidate: 0,
+      noCandidateIds: [],
     });
+  });
+
+  it("reports cases with no candidate separately and excludes them from precision", () => {
+    const r = strongPrecision(cases, (c) =>
+      c.id === "a" ? { code: "8418.30.00", label: "Strong Match" } : { code: null, label: null },
+    );
+    expect(r.noCandidate).toBe(2);
+    expect(r.noCandidateIds).toEqual(["b", "c"]);
+    expect(r.strong).toBe(1);
+    expect(r.precision).toBe(1);
   });
 
   it("treats zero Strong picks as full precision", () => {
     expect(strongPrecision(cases, () => ({ code: null, label: null })).precision).toBe(1);
+  });
+});
+
+describe("formatReport", () => {
+  const base = { total: 3, strong: 1, correct: 1, precision: 1, misses: [], noCandidate: 0, noCandidateIds: [] as string[] };
+  it("omits the no-candidate line when nothing was skipped", () => {
+    expect(formatReport(base)).toBe("Strong precision 100.0% (1/1 Strong of 3 cases)");
+  });
+  it("lists skipped cases when there are any", () => {
+    const text = formatReport({ ...base, noCandidate: 2, noCandidateIds: ["db-1", "golden-x"] });
+    expect(text.split("\n")).toContain("  No candidate (excluded from precision): 2 — db-1, golden-x");
   });
 });
 
