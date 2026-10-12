@@ -572,9 +572,10 @@ lines.post("/:lineId/recommendation", async (c) => {
     ? String(supplierSearch.evidence?.technicalSpecifications?.approvedTariff || "") || null
     : null;
   const history: EvidenceContext["history"] = historyHit
-    ? { code: historyHit.code, source: historyHit.source }
+    ? { code: historyHit.code, source: historyHit.source, confirmations: historyHit.confirmations }
     : supplierApprovedTariff
-      ? { code: supplierApprovedTariff, source: "supplier_evidence" }
+      // An approved supplier product record has no reliable per-code hand-apply count.
+      ? { code: supplierApprovedTariff, source: "supplier_evidence", confirmations: 1 }
       : null;
   const evidenceBase: Omit<EvidenceContext, "aiUsed" | "aiSelectedCode" | "aiConfidence"> = {
     familyResolved: familyKnown,

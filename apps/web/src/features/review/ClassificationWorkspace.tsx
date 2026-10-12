@@ -317,7 +317,10 @@ export function ClassificationWorkspace({
     target: LineItem,
     candidate: ClassificationRecommendationCandidate | null | undefined,
     edited: boolean,
+    // Batch apply passes `{ teach: false }`: only a clerk applying by hand counts toward approved history.
+    options: { teach?: boolean } = {},
   ): Promise<boolean> => {
+    const teach = options.teach ?? true;
     if (!candidate?.code?.trim()) {
       setRecommendationErrors((errors) => ({
         ...errors,
@@ -436,7 +439,7 @@ export function ClassificationWorkspace({
         console.warn("[classification] supplier evidence approve failed", error);
       }
       try {
-        await saveLearnedPair(target.desc, applied.code, dutyRate, applied.description);
+        if (teach) await saveLearnedPair(target.desc, applied.code, dutyRate, applied.description);
       } catch (error) {
         console.warn("[classification] learned pair after apply failed", error);
       }
@@ -488,7 +491,7 @@ export function ClassificationWorkspace({
     for (const item of selected) {
       const candidate = preferredCandidate(item);
       if (!isAutoApplyable(item, candidate)) continue;
-      await applyRecommendation(item, candidate!, false);
+      await applyRecommendation(item, candidate!, false, { teach: false });
     }
   };
 

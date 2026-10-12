@@ -291,6 +291,8 @@ export interface CandidateEvidence {
   descriptionCoverage: number;
   /** An approved history/learned code exists for this line and it differs from this code. */
   historyConflict: boolean;
+  /** Times a clerk applied this same code by hand for this item (0 when there is no history match). */
+  historyConfirmations: number;
 }
 
 export interface ClassificationRecommendationCandidate {

@@ -7,7 +7,7 @@ import type {
   ProductQuestion,
 } from "@pas/shared-types";
 import { catFromCode, getTariffRows } from "@pas/tariff-data";
-import { domainTariffConflict, type ProductDomain } from "@pas/product-intelligence";
+import { domainTariffConflict, HISTORY_CONFIRMATIONS_REQUIRED, type ProductDomain } from "@pas/product-intelligence";
 
 /** Preferred tariff candidates from the recommendation response (single source of truth). */
 export function recommendationCandidates(
@@ -601,9 +601,9 @@ export function isAutoApplyable(
   const e = candidate.evidence;
   if (!e) return false;
   if (e.historyConflict || (e.contradictions?.length ?? 0) > 0) return false;
-  // Approved history resolves the upfront line-level questions; otherwise only
-  // an unanswered REQUIRED question blocks (the parser always adds optional ones).
-  if (e.historyMatch) return true;
+  // History approved by two hand-applies resolves the upfront line-level questions;
+  // otherwise only an unanswered REQUIRED question blocks (the parser always adds optional ones).
+  if (e.historyMatch && (e.historyConfirmations ?? 0) >= HISTORY_CONFIRMATIONS_REQUIRED) return true;
   if (!hasAnsweredRequired(item)) return false;
   return e.familyResolved && e.compatibilityPassed;
 }

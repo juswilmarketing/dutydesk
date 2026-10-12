@@ -9,7 +9,7 @@ export interface EvidenceContext {
   aiUsed: boolean;
   aiSelectedCode: string | null;
   aiConfidence: number | null;
-  history: { code: string; source: CandidateEvidence["historyMatch"] } | null;
+  history: { code: string; source: CandidateEvidence["historyMatch"]; confirmations: number } | null;
 }
 
 function key(code: string): string {
@@ -39,6 +39,7 @@ export function buildCandidateEvidence(
     officialVerified: candidate.officialVerification?.status === "verified",
     descriptionCoverage: ctx.descriptionCoverage,
     historyConflict: historyCode != null && historyCode !== code,
+    historyConfirmations: historyCode === code ? ctx.history!.confirmations : 0,
   };
 }
 

@@ -34,6 +34,7 @@ const evidence: CandidateEvidence = {
   officialVerified: true,
   descriptionCoverage: 0.9,
   historyConflict: false,
+  historyConfirmations: 0,
 };
 
 function candidate(over: Partial<ClassificationRecommendationCandidate> = {}): ClassificationRecommendationCandidate {
@@ -72,7 +73,7 @@ describe("isAutoApplyable", () => {
   });
 
   it("accepts approved history even without family/compatibility", () => {
-    const c = candidate({ evidence: { ...evidence, historyMatch: "learned", familyResolved: false, compatibilityPassed: false } });
+    const c = candidate({ evidence: { ...evidence, historyMatch: "learned", historyConfirmations: 2, familyResolved: false, compatibilityPassed: false } });
     expect(isAutoApplyable(item(), c)).toBe(true);
   });
 
@@ -109,8 +110,26 @@ describe("isAutoApplyable", () => {
   });
 
   it("accepts history candidates despite unanswered required line questions", () => {
-    const c = candidate({ evidence: { ...evidence, historyMatch: "learned", familyResolved: false, compatibilityPassed: false } });
+    const c = candidate({ evidence: { ...evidence, historyMatch: "learned", historyConfirmations: 2, familyResolved: false, compatibilityPassed: false } });
     expect(isAutoApplyable(item({ pending_questions: [requiredQ, optionalQ] }), c)).toBe(true);
+  });
+
+  it("rejects history applied only once despite an unanswered required question", () => {
+    const c = candidate({ evidence: { ...evidence, historyMatch: "learned", historyConfirmations: 1 } });
+    expect(isAutoApplyable(item({ pending_questions: [requiredQ] }), c)).toBe(false);
+  });
+
+  it("rejects once-applied history without family/compatibility evidence", () => {
+    const c = candidate({
+      evidence: { ...evidence, historyMatch: "learned", historyConfirmations: 1, familyResolved: false, compatibilityPassed: false },
+    });
+    expect(isAutoApplyable(item(), c)).toBe(false);
+  });
+
+  it("treats cached history evidence without historyConfirmations as unconfirmed", () => {
+    const { historyConfirmations: _omit, ...cached } = { ...evidence, historyMatch: "learned" as const };
+    const c = candidate({ evidence: cached as CandidateEvidence });
+    expect(isAutoApplyable(item({ pending_questions: [requiredQ] }), c)).toBe(false);
   });
 
   it("rejects non-history candidates with an unanswered required question among optional ones", () => {

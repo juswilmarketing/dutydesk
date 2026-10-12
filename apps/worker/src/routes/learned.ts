@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import type { Env, AppVariables } from "../env";
 import { audit } from "../lib/utils";
 import { normalizeDesc } from "@pas/tariff-data";
+import { nextUses } from "../lib/history-confirmations";
 
 const learned = new Hono<{ Bindings: Env; Variables: AppVariables }>();
 
@@ -30,11 +31,11 @@ learned.post("/", async (c) => {
   const norm = normalizeDesc(body.desc || "");
   if (!norm || !body.tariff_code) return c.json({ error: "desc and tariff_code required" }, 400);
 
-  const existing = await c.env.DB.prepare("SELECT uses FROM learned WHERE normalized_desc = ?")
+  const existing = await c.env.DB.prepare("SELECT tariff_code, uses FROM learned WHERE normalized_desc = ?")
     .bind(norm)
-    .first<{ uses: number }>();
+    .first<{ tariff_code: string; uses: number }>();
 
-  const uses = (existing?.uses || 0) + 1;
+  const uses = nextUses(existing, body.tariff_code);
   await c.env.DB.prepare(
     `INSERT INTO learned (normalized_desc, tariff_code, duty_rate, category, uses, learned_at, updated_by)
      VALUES (?, ?, ?, ?, ?, datetime('now'), ?)

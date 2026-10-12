@@ -79,9 +79,23 @@ describe("buildCandidateEvidence", () => {
   });
 
   it("flags history match and history conflict", () => {
-    const history = { code: "6109.10.00", source: "supplier_history" as const };
+    const history = { code: "6109.10.00", source: "supplier_history" as const, confirmations: 2 };
     expect(buildCandidateEvidence(cand("6109.10.00"), { ...ctx, history }).historyMatch).toBe("supplier_history");
     expect(buildCandidateEvidence(cand("6205.20.00"), { ...ctx, history }).historyConflict).toBe(true);
+  });
+
+  it("carries history confirmations only for the candidate that matches history", () => {
+    const history = { code: "6109.10.00", source: "learned" as const, confirmations: 2 };
+    expect(buildCandidateEvidence(cand("6109 10 00"), { ...ctx, history }).historyConfirmations).toBe(2);
+    expect(buildCandidateEvidence(cand("6205.20.00"), { ...ctx, history }).historyConfirmations).toBe(0);
+    expect(buildCandidateEvidence(cand("6109.10.00"), ctx).historyConfirmations).toBe(0);
+  });
+
+  it("calibrates a once-applied history match as Likely and a twice-applied one as Strong", () => {
+    const once = { code: "6109.10.00", source: "learned" as const, confirmations: 1 };
+    const twice = { ...once, confirmations: 2 };
+    expect(calibrateCandidate(cand("6109.10.00"), { ...ctx, history: once }, false).confidenceLabel).toBe("Likely Match");
+    expect(calibrateCandidate(cand("6109.10.00"), { ...ctx, history: twice }, false).confidenceLabel).toBe("Strong Match");
   });
 
   it("does not count cached TTBizLink results as verified", () => {

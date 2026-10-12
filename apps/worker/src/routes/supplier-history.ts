@@ -3,6 +3,7 @@ import type { Env, AppVariables } from "../env";
 import { normalizeDesc } from "@pas/tariff-data";
 import { normalizeSupplierName } from "@pas/tariff-data";
 import { audit } from "../lib/utils";
+import { nextSupplierUsageCount } from "../lib/history-confirmations";
 
 const supplierHistory = new Hono<{ Bindings: Env; Variables: AppVariables }>();
 
@@ -115,12 +116,12 @@ supplierHistory.post("/", async (c) => {
   const clerk = c.get("username") || "clerk";
 
   const existing = await c.env.DB.prepare(
-    `SELECT id, usage_count FROM supplier_classification_history
+    `SELECT id, hs_code, usage_count FROM supplier_classification_history
      WHERE normalized_supplier_name = ? AND normalized_description = ?
        AND COALESCE(part_number, '') = ? AND COALESCE(model_number, '') = ?`,
   )
     .bind(normSupplier, normDesc, partNum, modelNum)
-    .first<{ id: number; usage_count: number }>();
+    .first<{ id: number; hs_code: string; usage_count: number }>();
 
   if (existing) {
     await c.env.DB.prepare(
@@ -142,7 +143,7 @@ supplierHistory.post("/", async (c) => {
         body.confidence ?? 1,
         body.match_type || "supplier_exact",
         body.source_job_id || null,
-        existing.usage_count + 1,
+        nextSupplierUsageCount(existing, hsCode),
         now,
         now,
         existing.id,

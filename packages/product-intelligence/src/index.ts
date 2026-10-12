@@ -148,4 +148,5 @@ export {
   calibrateConfidence,
   labelForScore,
   STRONG_MATCH_THRESHOLD,
+  HISTORY_CONFIRMATIONS_REQUIRED,
 } from "./confidence-calibration";

@@ -6,6 +6,8 @@ export type HistoryDb = Pick<D1Database, "prepare">;
 export interface HistoryHit {
   code: string;
   source: "supplier_history" | "learned";
+  /** Times a clerk applied this same code by hand (learned.uses / usage_count); 1 when unknown. */
+  confirmations: number;
 }
 
 /** Clerk-approved code for this exact supplier + description, then for the description alone. */
@@ -21,20 +23,20 @@ export async function findHistoryCode(
   if (supplierKey) {
     const row = await db
       .prepare(
-        `SELECT hs_code FROM supplier_classification_history
+        `SELECT hs_code, usage_count FROM supplier_classification_history
          WHERE normalized_supplier_name = ? AND normalized_description = ?
            AND approved_by_clerk = 1 AND disabled = 0
          ORDER BY usage_count DESC, updated_at DESC LIMIT 1`,
       )
       .bind(supplierKey, desc)
-      .first<{ hs_code: string }>();
-    if (row?.hs_code) return { code: row.hs_code, source: "supplier_history" };
+      .first<{ hs_code: string; usage_count: number | null }>();
+    if (row?.hs_code) return { code: row.hs_code, source: "supplier_history", confirmations: row.usage_count ?? 1 };
   }
 
   const learned = await db
-    .prepare("SELECT tariff_code FROM learned WHERE normalized_desc = ? LIMIT 1")
+    .prepare("SELECT tariff_code, uses FROM learned WHERE normalized_desc = ? LIMIT 1")
     .bind(desc)
-    .first<{ tariff_code: string }>();
-  if (learned?.tariff_code) return { code: learned.tariff_code, source: "learned" };
+    .first<{ tariff_code: string; uses: number | null }>();
+  if (learned?.tariff_code) return { code: learned.tariff_code, source: "learned", confirmations: learned.uses ?? 1 };
   return null;
 }

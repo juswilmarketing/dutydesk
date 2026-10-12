@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CandidateEvidence } from "@pas/shared-types";
-import { calibrateConfidence, STRONG_MATCH_THRESHOLD } from "./confidence-calibration";
+import { calibrateConfidence, HISTORY_CONFIRMATIONS_REQUIRED, STRONG_MATCH_THRESHOLD } from "./confidence-calibration";
 
 const base: CandidateEvidence = {
   historyMatch: null,
@@ -14,6 +14,7 @@ const base: CandidateEvidence = {
   officialVerified: false,
   descriptionCoverage: 0.8,
   historyConflict: false,
+  historyConfirmations: 0,
 };
 
 const fullyCorroborated: CandidateEvidence = {
@@ -28,15 +29,50 @@ const fullyCorroborated: CandidateEvidence = {
 };
 
 describe("calibrateConfidence", () => {
-  it("treats approved history as Strong", () => {
-    const r = calibrateConfidence({ ...base, historyMatch: "supplier_history" });
+  it("requires two hand-applies before history counts as approved", () => {
+    expect(HISTORY_CONFIRMATIONS_REQUIRED).toBe(2);
+  });
+
+  it("treats history applied twice as Strong", () => {
+    const r = calibrateConfidence({ ...base, historyMatch: "supplier_history", historyConfirmations: 2 });
     expect(r.label).toBe("Strong Match");
     expect(r.score).toBeGreaterThanOrEqual(0.95);
     expect(r.signals).toContain("Matches approved supplier history");
   });
 
+  it("rates history applied once as Likely 0.75 and asks to confirm", () => {
+    const r = calibrateConfidence({ ...base, historyMatch: "learned", historyConfirmations: 1 });
+    expect(r.label).toBe("Likely Match");
+    expect(r.score).toBe(0.75);
+    expect(r.signals).toContain("Applied once before for this item — confirm");
+  });
+
+  it("does not let vague unconfirmed history reach Strong", () => {
+    const r = calibrateConfidence({ ...base, historyMatch: "learned", historyConfirmations: 1, descriptionCoverage: 0.3 });
+    expect(r.label).toBe("Likely Match");
+    expect(r.score).toBe(0.6);
+    expect(r.signals).toContain("Description is vague");
+  });
+
+  it("caps provisional unconfirmed history below Possible", () => {
+    const r = calibrateConfidence({ ...base, historyMatch: "learned", historyConfirmations: 1 }, { provisional: true });
+    expect(r.label).toBe("More Information Needed");
+  });
+
+  it("treats evidence without historyConfirmations as unconfirmed", () => {
+    const { historyConfirmations: _omit, ...legacy } = { ...base, historyMatch: "learned" as const };
+    const r = calibrateConfidence(legacy as CandidateEvidence);
+    expect(r.label).not.toBe("Strong Match");
+    expect(r.score).toBe(0.75);
+  });
+
   it("does not trust history that the classifier contradicts", () => {
-    const r = calibrateConfidence({ ...base, historyMatch: "learned", contradictions: ["Chapter 22 is excluded"] });
+    const r = calibrateConfidence({
+      ...base,
+      historyMatch: "learned",
+      historyConfirmations: 2,
+      contradictions: ["Chapter 22 is excluded"],
+    });
     expect(r.label).not.toBe("Strong Match");
   });
 
@@ -68,7 +104,7 @@ describe("calibrateConfidence", () => {
   });
 
   it("still allows Strong on history path without TTBizLink verification", () => {
-    const r = calibrateConfidence({ ...base, historyMatch: "learned", officialVerified: false });
+    const r = calibrateConfidence({ ...base, historyMatch: "learned", historyConfirmations: 2, officialVerified: false });
     expect(r.label).toBe("Strong Match");
   });
 
@@ -103,7 +139,7 @@ describe("calibrateConfidence", () => {
   });
 
   it("keeps scores within 0..0.98", () => {
-    const hi = calibrateConfidence({ ...fullyCorroborated, historyMatch: "supplier_history" }).score;
+    const hi = calibrateConfidence({ ...fullyCorroborated, historyMatch: "supplier_history", historyConfirmations: 2 }).score;
     const lo = calibrateConfidence({ ...base, dbTopAgrees: false, descriptionCoverage: 0, contradictions: ["a"], historyConflict: true }).score;
     expect(hi).toBeLessThanOrEqual(0.98);
     expect(lo).toBeGreaterThanOrEqual(0);

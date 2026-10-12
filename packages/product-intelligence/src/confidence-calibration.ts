@@ -4,6 +4,9 @@ export const STRONG_MATCH_THRESHOLD = 0.85;
 const LIKELY_THRESHOLD = 0.6;
 const POSSIBLE_THRESHOLD = 0.45;
 const HISTORY_SCORE = 0.96;
+const UNCONFIRMED_HISTORY_SCORE = 0.75;
+/** Hand-applies of the same code before remembered history counts as approved. */
+export const HISTORY_CONFIRMATIONS_REQUIRED = 2;
 const MAX_SCORE = 0.98;
 const VAGUE_COVERAGE = 0.5;
 
@@ -34,9 +37,14 @@ export function calibrateConfidence(
   let historyShortCircuit = false;
 
   if (evidence.historyMatch && !contradicted && !evidence.historyConflict) {
-    historyShortCircuit = true;
-    score = HISTORY_SCORE;
-    signals.push(HISTORY_SIGNAL[evidence.historyMatch]);
+    if ((evidence.historyConfirmations ?? 0) >= HISTORY_CONFIRMATIONS_REQUIRED) {
+      historyShortCircuit = true;
+      score = HISTORY_SCORE;
+      signals.push(HISTORY_SIGNAL[evidence.historyMatch]);
+    } else {
+      score = UNCONFIRMED_HISTORY_SCORE;
+      signals.push("Applied once before for this item — confirm");
+    }
   } else {
     score = 0.3;
     if (evidence.historyMatch) signals.push(HISTORY_SIGNAL[evidence.historyMatch]);
