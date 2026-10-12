@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { ClassificationRecommendationCandidate } from "@pas/shared-types";
-import { buildCandidateEvidence, calibrateCandidate, type EvidenceContext } from "./candidate-evidence";
+import type { HierarchicalClassificationResult } from "@pas/product-intelligence";
+import {
+  buildCandidateEvidence,
+  calibrateCandidate,
+  familyResolvedFor,
+  isProvisionalResult,
+  type EvidenceContext,
+} from "./candidate-evidence";
 
 function cand(code: string, verified = false): ClassificationRecommendationCandidate {
   return {
@@ -119,5 +126,38 @@ describe("calibrateCandidate", () => {
     calibrateCandidate(input, ctx, false);
     expect(input.evidence).toBeUndefined();
     expect(input.confidence).toBe(0.99);
+  });
+});
+
+type Profile = HierarchicalClassificationResult["profile"];
+const profile = (over: Record<string, unknown> = {}): Profile =>
+  ({ knownAttributes: {}, missingCriticalAttributes: [], ...over }) as unknown as Profile;
+
+describe("familyResolvedFor", () => {
+  it("is true for a hard heading gate, a fast path, or family confidence ≥ 0.85", () => {
+    expect(familyResolvedFor(profile({ knownAttributes: { hardHeadingGate: true } }))).toBe(true);
+    expect(familyResolvedFor(profile({ knownAttributes: { commonProductFastPath: true } }))).toBe(true);
+    expect(familyResolvedFor(profile({ familyConfidence: 0.85 }))).toBe(true);
+    expect(familyResolvedFor(profile({ knownAttributes: { productFamilyConfidence: 0.9 } }))).toBe(true);
+  });
+
+  it("is false otherwise", () => {
+    expect(familyResolvedFor(profile({ familyConfidence: 0.84 }))).toBe(false);
+  });
+});
+
+describe("isProvisionalResult", () => {
+  const result = (status: HierarchicalClassificationResult["recommendationStatus"], missing: string[] = []) =>
+    ({ recommendationStatus: status, profile: profile({ missingCriticalAttributes: missing }) }) as HierarchicalClassificationResult;
+
+  it("is provisional for provisional/insufficient status or missing critical attributes", () => {
+    expect(isProvisionalResult(result("provisional"))).toBe(true);
+    expect(isProvisionalResult(result("insufficient"))).toBe(true);
+    expect(isProvisionalResult(result("strong", ["material"]))).toBe(true);
+  });
+
+  it("is not provisional for a complete strong/likely result", () => {
+    expect(isProvisionalResult(result("strong"))).toBe(false);
+    expect(isProvisionalResult(result("likely"))).toBe(false);
   });
 });

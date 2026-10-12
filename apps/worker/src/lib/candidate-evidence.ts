@@ -1,5 +1,17 @@
 import type { CandidateEvidence, ClassificationRecommendationCandidate } from "@pas/shared-types";
-import { calibrateConfidence } from "@pas/product-intelligence";
+import { calibrateConfidence, type HierarchicalClassificationResult } from "@pas/product-intelligence";
+
+export function familyResolvedFor(profile: HierarchicalClassificationResult["profile"]): boolean {
+  return Boolean(profile.knownAttributes?.hardHeadingGate)
+    || Number(profile.familyConfidence ?? profile.knownAttributes?.productFamilyConfidence ?? 0) >= 0.85
+    || Boolean(profile.knownAttributes?.commonProductFastPath);
+}
+
+export function isProvisionalResult(result: HierarchicalClassificationResult): boolean {
+  return result.recommendationStatus === "provisional"
+    || result.recommendationStatus === "insufficient"
+    || result.profile.missingCriticalAttributes.length > 0;
+}
 
 export interface EvidenceContext {
   familyResolved: boolean;

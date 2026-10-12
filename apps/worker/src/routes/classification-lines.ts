@@ -30,7 +30,12 @@ import { verifyCandidateWithTtbizlink } from "../lib/ttbizlink";
 import { findHistoryCode } from "../lib/classification-history";
 import { historyWording } from "../lib/history-confirmations";
 import { aiResponseStatus } from "../lib/ai-response-status";
-import { calibrateCandidate, type EvidenceContext } from "../lib/candidate-evidence";
+import {
+  calibrateCandidate,
+  familyResolvedFor,
+  isProvisionalResult,
+  type EvidenceContext,
+} from "../lib/candidate-evidence";
 import { codeDigits, detectCorrection, suggestedTop } from "../lib/correction-capture";
 import { runSupplierProductSearch } from "./supplier-search";
 
@@ -566,10 +571,7 @@ lines.post("/:lineId/recommendation", async (c) => {
   }));
 
   // Never reintroduce incompatible codes when product family is known with confidence.
-  const familyKnown =
-    Boolean(hierarchical.profile.knownAttributes?.hardHeadingGate)
-    || Number(hierarchical.profile.familyConfidence ?? hierarchical.profile.knownAttributes?.productFamilyConfidence ?? 0) >= 0.85
-    || Boolean(hierarchical.profile.knownAttributes?.commonProductFastPath);
+  const familyKnown = familyResolvedFor(hierarchical.profile);
 
   const historyHit = await findHistoryCode(c.env.DB, supplierName, body.originalDescription).catch(() => null);
   const supplierApprovedTariff = supplierSearch.status === "exact_internal"
@@ -778,10 +780,7 @@ lines.post("/:lineId/recommendation", async (c) => {
     return c.json(response);
   }
 
-  const provisional =
-    hierarchical.recommendationStatus === "provisional"
-    || hierarchical.recommendationStatus === "insufficient"
-    || hierarchical.profile.missingCriticalAttributes.length > 0;
+  const provisional = isProvisionalResult(hierarchical);
 
   let ranked = candidates;
   let selectedReason =
