@@ -25,9 +25,12 @@ import {
 import {
   GENERATION_CONCURRENCY,
   classificationProgress,
+  generatingIds,
   groupDuplicates,
   needsSuggestion,
+  refreshGroup,
   runWithConcurrency,
+  type DuplicateGroup,
 } from "./classification-queue";
 import { api } from "@/lib/api-client";
 import { useInvoiceStore } from "@/stores/invoice-store";
@@ -500,19 +503,33 @@ export function ClassificationWorkspace({
   // Auto-generate suggestions for pending lines, several at a time; duplicate lines reuse the leader's result.
   const generationRunning = useRef(false);
   const [generationPass, setGenerationPass] = useState(0);
+  // Latest items/busy for queued groups, which start later than the render that scheduled them.
+  const itemsRef = useRef(items);
+  itemsRef.current = items;
+  const busyRef = useRef(busyIds);
+  busyRef.current = busyIds;
 
   useEffect(() => {
     if (generationRunning.current) return;
     const pending = items.filter(
-      (item) => needsSuggestion(item) && !autoGenerationAttempted.current.has(item.id),
+      (item) =>
+        needsSuggestion(item) &&
+        !autoGenerationAttempted.current.has(item.id) &&
+        !busyRef.current.has(item.id),
     );
     if (!pending.length) return;
     pending.forEach((item) => autoGenerationAttempted.current.add(item.id));
     generationRunning.current = true;
+    // The group each queued entry actually ran with, so onError only marks lines that were still eligible.
+    const started = new Map<DuplicateGroup, DuplicateGroup>();
     void runWithConcurrency(
       groupDuplicates(pending),
       GENERATION_CONCURRENCY,
-      async ({ leader, followers }) => {
+      async (queued) => {
+        const group = refreshGroup(queued, itemsRef.current, busyRef.current);
+        if (!group) return;
+        started.set(queued, group);
+        const { leader, followers } = group;
         followers.forEach((f) => setBusy(f.id, true));
         try {
           const shared = await generateRecommendation(leader);
@@ -531,11 +548,12 @@ export function ClassificationWorkspace({
           followers.forEach((f) => setBusy(f.id, false));
         }
       },
-      ({ leader, followers }, error) => {
+      (queued, error) => {
         // Must not throw: a throwing handler would abort the whole batch.
         try {
           console.warn("[classification] suggestion run failed", error);
           const message = error instanceof Error ? error.message : "Unable to generate recommendation.";
+          const { leader, followers } = started.get(queued) ?? queued;
           for (const line of [leader, ...followers]) {
             setRecommendationErrors((errors) => ({ ...errors, [line.id]: message }));
             editItem(invId, line.id, "classification_status", "Failed");
@@ -575,7 +593,10 @@ export function ClassificationWorkspace({
     });
   }, [selectedIds, items]);
 
-  const progress = useMemo(() => classificationProgress(items, busyIds), [items, busyIds]);
+  const progress = useMemo(
+    () => classificationProgress(items, generatingIds(items, busyIds)),
+    [items, busyIds],
+  );
 
   if (!activeItem) {
     return <div className="p-6 text-sm dd-text-muted">No line items on this invoice.</div>;

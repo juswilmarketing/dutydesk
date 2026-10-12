@@ -48,16 +48,46 @@ export interface DuplicateGroup {
   followers: LineItem[];
 }
 
-/** First line of each duplicate set leads; the rest reuse its suggestion. */
+/**
+ * First line of each duplicate set leads; the rest reuse its suggestion.
+ * Non-merchandise lines never share: each runs alone so it gets its own line-type outcome.
+ */
 export function groupDuplicates(items: readonly LineItem[]): DuplicateGroup[] {
   const groups = new Map<string, DuplicateGroup>();
   for (const item of items) {
-    const key = duplicateKey(item);
+    const key = item.line_type && item.line_type !== "merchandise" ? `id:${item.id}` : duplicateKey(item);
     const group = groups.get(key);
     if (group) group.followers.push(item);
     else groups.set(key, { leader: item, followers: [] });
   }
   return [...groups.values()];
+}
+
+/**
+ * Re-reads a queued group against the latest items just before it runs. Keeps only lines that still
+ * need a suggestion and are not busy, promoting the first remaining follower if the leader dropped out.
+ */
+export function refreshGroup(
+  group: DuplicateGroup,
+  latest: readonly LineItem[],
+  busy: ReadonlySet<number>,
+): DuplicateGroup | null {
+  const byId = new Map(latest.map((item) => [item.id, item]));
+  const eligible = [group.leader, ...group.followers].flatMap((member) => {
+    const item = byId.get(member.id);
+    return item && needsSuggestion(item) && !busy.has(item.id) ? [item] : [];
+  });
+  if (!eligible.length) return null;
+  return { leader: eligible[0], followers: eligible.slice(1) };
+}
+
+/** Busy lines that are actually generating a suggestion (not applying or searching). */
+export function generatingIds(items: readonly LineItem[], busyIds: ReadonlySet<number>): ReadonlySet<number> {
+  const ids = new Set<number>();
+  for (const item of items) {
+    if (busyIds.has(item.id) && !item.classification_recommendation && !isLineApplied(item)) ids.add(item.id);
+  }
+  return ids;
 }
 
 export interface ClassificationProgress {
