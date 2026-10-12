@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { ClassificationRecommendationCandidate, LineItem } from "@pas/shared-types";
 import {
   GENERATION_CONCURRENCY,
@@ -54,11 +54,20 @@ describe("runWithConcurrency", () => {
 
   it("keeps going when a worker throws", async () => {
     const done: number[] = [];
-    await runWithConcurrency([1, 2, 3], 2, async (n) => {
-      if (n === 1) throw new Error("boom");
-      done.push(n);
-    });
-    expect(done.sort()).toEqual([2, 3]);
+    const onError = vi.fn();
+    await runWithConcurrency(
+      [1, 2, 3],
+      2,
+      async (n) => {
+        if (n === 1) throw new Error("boom");
+        done.push(n);
+      },
+      onError,
+    );
+    expect(onError).toHaveBeenCalledOnce();
+    expect(onError).toHaveBeenCalledWith(1, expect.any(Error));
+    expect(onError.mock.calls[0][1]).toEqual(new Error("boom"));
+    expect(done.sort((a, b) => a - b)).toEqual([2, 3]);
   });
 });
 
@@ -111,6 +120,16 @@ describe("classificationProgress", () => {
 
   it("is not complete while a ready line is still busy", () => {
     expect(classificationProgress([withRecommendation(1)], new Set([1])).complete).toBe(false);
+  });
+
+  it("counts blank-description lines as ready", () => {
+    const items = [withRecommendation(1), line(2, { desc: "  " })];
+    expect(classificationProgress(items, new Set())).toEqual({
+      total: 2,
+      ready: 2,
+      failed: 0,
+      complete: true,
+    });
   });
 });
 

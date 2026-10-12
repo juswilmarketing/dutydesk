@@ -11,16 +11,19 @@ export async function runWithConcurrency<T>(
   items: readonly T[],
   limit: number,
   worker: (item: T) => Promise<void>,
+  onError?: (item: T, error: unknown) => void,
 ): Promise<void> {
+  if (items.length === 0) return;
   let next = 0;
-  const runners = Array.from({ length: Math.min(limit, items.length) }, async () => {
+  const runnerCount = Math.max(1, Math.min(limit, items.length));
+  const runners = Array.from({ length: runnerCount }, async () => {
     while (next < items.length) {
       const item = items[next];
       next += 1;
       try {
         await worker(item);
-      } catch {
-        // The worker records its own failure on the line.
+      } catch (error) {
+        onError?.(item, error);
       }
     }
   });
@@ -75,7 +78,14 @@ export function classificationProgress(
     if (busyIds.has(item.id)) busy = true;
     const status = item.classification_status || "";
     if (status === "Failed" && !item.classification_recommendation) failed += 1;
-    if (item.classification_recommendation || isLineApplied(item) || TERMINAL_STATUSES.has(status)) ready += 1;
+    if (
+      !item.desc?.trim() ||
+      item.classification_recommendation ||
+      isLineApplied(item) ||
+      TERMINAL_STATUSES.has(status)
+    ) {
+      ready += 1;
+    }
   }
   return { total: items.length, ready, failed, complete: ready === items.length && !busy };
 }
