@@ -577,3 +577,31 @@ export function shortDescription(desc: string, max = 48): string {
   if (t.length <= max) return t;
   return `${t.slice(0, max - 1)}…`;
 }
+
+export const AUTO_APPLY_MIN_CONFIDENCE = 0.85;
+
+const BLOCKING_LINE_STATUSES = new Set(["More Information Needed", "Needs Manual Review", "Failed"]);
+
+/** The single rule for applying a suggestion without the clerk looking at it. */
+export function isAutoApplyable(
+  item: LineItem,
+  candidate: ClassificationRecommendationCandidate | null | undefined,
+): boolean {
+  if (!candidate) return false;
+  if (candidate.confidenceLabel !== "Strong Match") return false;
+  if (candidate.confidence == null || candidate.confidence < AUTO_APPLY_MIN_CONFIDENCE) return false;
+  if (candidate.provisional) return false;
+
+  const rec = item.classification_recommendation;
+  if (rec?.question) return false;
+  if (rec?.status === "clarification_needed" || rec?.status === "unable_to_classify") return false;
+  if ((item.pending_questions?.length ?? 0) > 0) return false;
+  if (item.classification_status && BLOCKING_LINE_STATUSES.has(item.classification_status)) return false;
+  if (item.classification_conflict) return false;
+
+  const e = candidate.evidence;
+  if (!e) return false;
+  if (e.historyConflict || e.contradictions.length > 0) return false;
+  if (e.historyMatch) return true;
+  return e.familyResolved && e.compatibilityPassed;
+}

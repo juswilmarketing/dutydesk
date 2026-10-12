@@ -16,6 +16,7 @@ import { ClassificationCentre } from "./ClassificationCentre";
 import { AiAssistantPanel } from "./AiAssistantPanel";
 import { ProductResolverPanel } from "./ProductResolverPanel";
 import {
+  isAutoApplyable,
   isLineApplied,
   mapRecommendationToLineStatus,
   promoteRecommendationCandidate,
@@ -487,12 +488,8 @@ export function ClassificationWorkspace({
     const selected = items.filter((i) => selectedIds.includes(i.id));
     for (const item of selected) {
       const candidate = preferredCandidate(item);
-      if (!candidate) continue;
-      const strong = candidate.confidenceLabel === "Strong Match"
-        || (candidate.confidence != null && candidate.confidence >= 0.8)
-        || item.recommendation_source === "ai_recommendation";
-      if (!strong && candidate.provisional) continue;
-      await applyRecommendation(item, candidate, false);
+      if (!isAutoApplyable(item, candidate)) continue;
+      await applyRecommendation(item, candidate!, false);
     }
   };
 
@@ -506,10 +503,9 @@ export function ClassificationWorkspace({
 
   const selectedCanBatchApply = useMemo(() => {
     if (!selectedIds.length) return false;
-    return selectedIds.every((id) => {
+    return selectedIds.some((id) => {
       const item = items.find((i) => i.id === id);
-      const candidate = item ? preferredCandidate(item) : null;
-      return Boolean(candidate && (candidate.confidenceLabel === "Strong Match" || !candidate.provisional));
+      return Boolean(item && isAutoApplyable(item, preferredCandidate(item)));
     });
   }, [selectedIds, items]);
 
