@@ -267,6 +267,32 @@ export type SimpleRecommendationStatus =
   | "clarification_needed"
   | "unable_to_classify";
 
+/** Independent evidence behind one suggested tariff code; drives calibrated confidence. */
+export interface CandidateEvidence {
+  /** Code comes from clerk-approved memory for this supplier/description. */
+  historyMatch: "supplier_history" | "learned" | "supplier_evidence" | null;
+  /** Product family identified with confidence (hard heading gate, family confidence >= 0.85, or fast path). */
+  familyResolved: boolean;
+  /** Candidate survived the compatibility filter with no conflicts. */
+  compatibilityPassed: boolean;
+  /** Conflicts reported by the classifier for this code. */
+  contradictions: string[];
+  /** 0-based position in database retrieval ranking; null when not retrieved. */
+  retrievalRank: number | null;
+  /** The AI reranker picked this code. */
+  aiSelected: boolean;
+  /** AI confidence for this code (only when aiSelected). */
+  aiConfidence: number | null;
+  /** AI pick equals the database's top candidate; null when AI was not used. */
+  dbTopAgrees: boolean | null;
+  /** TTBizLink returned a fresh "verified" result. */
+  officialVerified: boolean;
+  /** How well the description was understood, 0–1 (profile interpretationConfidence). */
+  descriptionCoverage: number;
+  /** An approved history/learned code exists for this line and it differs from this code. */
+  historyConflict: boolean;
+}
+
 export interface ClassificationRecommendationCandidate {
   code: string;
   description: string;
@@ -279,6 +305,9 @@ export interface ClassificationRecommendationCandidate {
   confidence?: number;
   confidenceLabel?: ConfidenceLabel;
   provisional?: boolean;
+  evidence?: CandidateEvidence;
+  /** Plain-English reasons for the confidence, e.g. "Matches approved supplier history". */
+  confidenceSignals?: string[];
   officialVerification?: {
     source: "ttbizlink";
     status: "verified" | "cached" | "not_found" | "unavailable";

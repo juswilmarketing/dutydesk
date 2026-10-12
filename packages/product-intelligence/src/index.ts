@@ -144,3 +144,8 @@ export {
   filterCompatibleCandidates,
   type CompatibilityResult,
 } from "./candidate-compatibility";
+export {
+  calibrateConfidence,
+  labelForScore,
+  STRONG_MATCH_THRESHOLD,
+} from "./confidence-calibration";
