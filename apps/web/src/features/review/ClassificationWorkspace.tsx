@@ -30,8 +30,12 @@ import {
   needsSuggestion,
   refreshGroup,
   runWithConcurrency,
+  batchApplySummary,
+  shouldOfferStrongConfirm,
+  strongMatches,
   type DuplicateGroup,
 } from "./classification-queue";
+import { StrongMatchConfirmModal } from "./StrongMatchConfirmModal";
 import { api } from "@/lib/api-client";
 import { useInvoiceStore } from "@/stores/invoice-store";
 import { useWorkflowStore } from "@/stores/workflow-store";
@@ -76,6 +80,8 @@ type Props = {
   ) => Promise<number | void | undefined>;
   onNavigateSupplierHistory: () => void;
   onNavigateTariffSearch: () => void;
+  strongConfirmOffered: boolean;
+  onStrongConfirmOffered: () => void;
 };
 
 function preferredCandidate(item: LineItem): ClassificationRecommendationCandidate | null {
@@ -105,6 +111,8 @@ export function ClassificationWorkspace({
   persistProductLearning,
   onNavigateSupplierHistory,
   onNavigateTariffSearch,
+  strongConfirmOffered,
+  onStrongConfirmOffered,
 }: Props) {
   const [activeId, setActiveId] = useState<number | null>(items[0]?.id ?? null);
   const [assistantOpen, setAssistantOpen] = useState(false);
@@ -568,15 +576,6 @@ export function ClassificationWorkspace({
     });
   }, [editItem, generateRecommendation, generationPass, invId, items, patchItem, setBusy]);
 
-  const batchApply = async () => {
-    const selected = items.filter((i) => selectedIds.includes(i.id));
-    for (const item of selected) {
-      const candidate = preferredCandidate(item);
-      if (!isAutoApplyable(item, candidate)) continue;
-      await applyRecommendation(item, candidate!, false, { teach: false });
-    }
-  };
-
   const batchRerun = async () => {
     const selected = items.filter((i) => selectedIds.includes(i.id));
     for (const item of selected) {
@@ -597,6 +596,32 @@ export function ClassificationWorkspace({
     () => classificationProgress(items, generatingIds(items, busyIds)),
     [items, busyIds],
   );
+
+  const [batchMessage, setBatchMessage] = useState("");
+  const [applyingStrong, setApplyingStrong] = useState(false);
+  const strong = useMemo(() => strongMatches(items), [items]);
+  const showStrongConfirm = shouldOfferStrongConfirm(progress, strong.length, strongConfirmOffered);
+
+  const applyStrong = async (targets: LineItem[]) => {
+    setApplyingStrong(true);
+    let applied = 0;
+    let skipped = 0;
+    let failed = 0;
+    try {
+      for (const item of targets) {
+        const candidate = preferredCandidate(item);
+        if (!isAutoApplyable(item, candidate)) {
+          skipped += 1;
+          continue;
+        }
+        if (await applyRecommendation(item, candidate!, false, { teach: false })) applied += 1;
+        else failed += 1;
+      }
+    } finally {
+      setApplyingStrong(false);
+    }
+    setBatchMessage(batchApplySummary({ applied, skipped, failed }));
+  };
 
   if (!activeItem) {
     return <div className="p-6 text-sm dd-text-muted">No line items on this invoice.</div>;
@@ -619,7 +644,7 @@ export function ClassificationWorkspace({
             className="h-7 px-2 text-[10px]"
             disabled={!selectedCanBatchApply}
             title={selectedCanBatchApply ? "Apply strong recommendations to selected lines" : "Only strong matches can be batch-applied"}
-            onClick={() => void batchApply()}
+            onClick={() => void applyStrong(items.filter((i) => selectedIds.includes(i.id)))}
           >
             Batch apply strong matches
           </Button>
@@ -627,6 +652,7 @@ export function ClassificationWorkspace({
             Regenerate selected
           </Button>
         </div>
+        {batchMessage && <div className="text-[12px]" role="status">{batchMessage}</div>}
       </div>
 
       <div className="dd-class-mobile-nav">
@@ -956,6 +982,17 @@ export function ClassificationWorkspace({
         </Button>
         <Badge tone="blue">{activeIndex + 1}/{items.length}</Badge>
       </div>
+
+      {showStrongConfirm && (
+        <StrongMatchConfirmModal
+          matches={strong}
+          applying={applyingStrong}
+          onApply={(ids) => {
+            void applyStrong(items.filter((i) => ids.includes(i.id))).finally(onStrongConfirmOffered);
+          }}
+          onDismiss={onStrongConfirmOffered}
+        />
+      )}
     </div>
   );
 }

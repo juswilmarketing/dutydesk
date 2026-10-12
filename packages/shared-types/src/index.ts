@@ -772,6 +772,8 @@ export interface InvoiceMeta {
   totalsReviewed: boolean;
   /** Durable document-processing job used to search attached shipment evidence. */
   sourceJobId?: string;
+  /** The "apply strong matches" prompt was already shown for this invoice. */
+  strongConfirmOffered?: boolean;
 }
 
 export type InvoiceChargeKind = "freight" | "insurance" | "sales_tax" | "other";

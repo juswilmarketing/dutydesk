@@ -302,6 +302,14 @@ export function ReviewPage() {
                 persistProductLearning={persistProductLearning}
                 onNavigateSupplierHistory={() => navigate("/admin/supplier-history")}
                 onNavigateTariffSearch={() => navigate("/manual")}
+                strongConfirmOffered={Boolean(activeInv.meta.strongConfirmOffered)}
+                onStrongConfirmOffered={() =>
+                  setInvoices((p) =>
+                    p.map((inv) =>
+                      inv.id === activeInv.id ? { ...inv, meta: { ...inv.meta, strongConfirmOffered: true } } : inv,
+                    ),
+                  )
+                }
               />
 
               <div
