@@ -242,6 +242,20 @@
     background: var(--accent2);
   }
 
+  .dd-subnav {
+    @apply mb-4 flex flex-wrap gap-1.5;
+  }
+  .dd-subnav-link {
+    @apply rounded-full border px-3 py-1 text-[12px];
+    border-color: var(--border);
+    color: var(--text2);
+  }
+  .dd-subnav-link-active {
+    background: var(--accent-light);
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+
   .dd-card {
     background: var(--surface);
     border: 1px solid var(--border);

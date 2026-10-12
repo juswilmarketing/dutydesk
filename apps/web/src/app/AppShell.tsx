@@ -13,28 +13,13 @@ import { Tooltip } from '@/components/ui/Tooltip';
 import { dashboardMetrics } from '@/lib/workflow-pipeline';
 import { ScrollableTabNav } from '@/components/layout/ScrollableTabNav';
 import { JobSaveIndicator } from '@/components/workflow/JobSaveIndicator';
-
-type TabDef = {
-  to: string;
-  label: string;
-  short: string;
-  icon: string;
-  badge?: 'invoices' | 'flowboard' | 'reports';
-  requiresInvoices?: boolean;
-  adminOnly?: boolean;
-};
-
-const clerkTabs: TabDef[] = [
-  { to: '/dashboard', label: 'Dashboard', short: 'Home', icon: '📊' },
-  { to: '/upload', label: 'Upload', short: 'Upload', icon: '📄' },
-  { to: '/classification', label: 'Classification', short: 'Classify', icon: '📋', badge: 'invoices', requiresInvoices: true },
-  { to: '/manual', label: 'Manual', short: 'Manual', icon: '✏️' },
-  { to: '/duties-taxes', label: 'Duties & Taxes', short: 'Taxes', icon: '🧮' },
-  { to: '/worksheet', label: 'Worksheet', short: 'Sheet', icon: '📝' },
-  { to: '/brokerage', label: 'Brokerage', short: 'Broker', icon: '⚓' },
-  { to: '/flowboard', label: 'FlowBoard', short: 'Flow', icon: '🔀', badge: 'flowboard' },
-  { to: '/asycuda', label: 'ASYCUDA', short: 'ASYCUDA', icon: '🛃' },
-];
+import {
+  BROKERAGE_LINKS,
+  CLERK_TABS,
+  activeTabFor,
+  isBrokeragePath,
+  type TabDef,
+} from '@/lib/nav-config';
 
 const adminTabs: TabDef[] = [
   { to: '/reports', label: 'Reports', short: 'Reports', icon: '📊', badge: 'reports', adminOnly: true },
@@ -67,7 +52,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const toggleTheme = useThemeStore((s) => s.toggleTheme);
   const location = useLocation();
   const isAdmin = user?.role === 'admin';
-  const tabs: TabDef[] = isAdmin ? [...clerkTabs, ...adminTabs] : clerkTabs;
+  const tabs: TabDef[] = isAdmin ? [...CLERK_TABS, ...adminTabs] : CLERK_TABS;
   const metrics = dashboardMetrics(invoices, taxLog, taxInputs);
 
   useEffect(() => {
@@ -81,7 +66,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return 0;
   };
 
-  const activeTab = tabs.find((t) => location.pathname.startsWith(t.to));
+  const activeTab = activeTabFor(location.pathname, tabs);
 
   const tabTip = (tab: TabDef, disabled?: boolean) => {
     const base = NAV_TAB_TIPS[tab.to] || tab.label;
@@ -163,7 +148,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <NavLink
                   to={tab.to}
                   data-tab-key={tab.to}
-                  className={({ isActive }) => cn('dd-tab no-underline', isActive && 'dd-tab-active')}
+                  className={cn('dd-tab no-underline', activeTab?.to === tab.to && 'dd-tab-active')}
                 >
                   <span className="mr-1.5 text-base">{tab.icon}</span>
                   {tab.label}
@@ -173,6 +158,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             );
           })}
         </ScrollableTabNav>
+
+        {isBrokeragePath(location.pathname) && (
+          <nav className="dd-subnav" aria-label="Brokerage">
+            {BROKERAGE_LINKS.map((link) => (
+              <NavLink
+                key={link.to}
+                to={link.to}
+                className={({ isActive }) => cn('dd-subnav-link no-underline', isActive && 'dd-subnav-link-active')}
+              >
+                {link.label}
+              </NavLink>
+            ))}
+          </nav>
+        )}
 
         <main className="min-w-0">
           <JobSaveIndicator />
