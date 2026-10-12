@@ -863,7 +863,7 @@
 }
 @media (min-width: 1100px) {
   .dd-class-panels {
-    grid-template-columns: minmax(200px, 240px) minmax(0, 1fr) minmax(260px, 300px);
+    grid-template-columns: minmax(200px, 240px) minmax(0, 1fr);
     min-height: 560px;
   }
 }
@@ -992,18 +992,6 @@
   background: color-mix(in srgb, var(--surface) 92%, transparent);
   backdrop-filter: blur(6px);
 }
-.dd-class-assistant-desktop {
-  display: none;
-  border-left: 1px solid var(--border);
-  background: var(--surface2);
-  max-height: 75vh;
-  overflow-y: auto;
-}
-@media (min-width: 1100px) {
-  .dd-class-assistant-desktop {
-    display: block;
-  }
-}
 .dd-class-assistant {
   @apply space-y-0 p-3;
 }
@@ -1029,30 +1017,6 @@
   .dd-class-mobile-nav {
     display: none;
   }
-}
-.dd-class-sticky-actions {
-  @apply fixed inset-x-0 bottom-0 z-40 flex items-center gap-2 border-t px-3 py-2 lg:hidden;
-  background: var(--surface);
-  border-color: var(--border);
-  padding-bottom: max(0.5rem, env(safe-area-inset-bottom, 0));
-  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.12);
-}
-@media (min-width: 1100px) {
-  .dd-class-sticky-actions {
-    display: none;
-  }
-}
-.dd-class-drawer {
-  @apply fixed inset-0 z-50 lg:hidden;
-}
-.dd-class-drawer-backdrop {
-  @apply absolute inset-0;
-  background: rgba(0, 0, 0, 0.4);
-}
-.dd-class-drawer-panel {
-  @apply absolute inset-y-0 right-0 w-[min(100%,360px)] overflow-y-auto border-l p-3;
-  background: var(--surface);
-  border-color: var(--border);
 }
 
 /* ===== Product-first resolver ===== */

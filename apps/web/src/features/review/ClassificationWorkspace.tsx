@@ -10,7 +10,6 @@ import type {
 } from "@pas/shared-types";
 import { getTariffRows } from "@pas/tariff-data";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { LineQueuePanel } from "./LineQueuePanel";
 import { ClassificationCentre } from "./ClassificationCentre";
 import { AiAssistantPanel } from "./AiAssistantPanel";
@@ -118,9 +117,7 @@ export function ClassificationWorkspace({
   onContinue,
 }: Props) {
   const [activeId, setActiveId] = useState<number | null>(items[0]?.id ?? null);
-  const [assistantOpen, setAssistantOpen] = useState(false);
   const [mobileLineOpen, setMobileLineOpen] = useState(false);
-  const [advancedOpen, setAdvancedOpen] = useState(false);
   const [recommendationErrors, setRecommendationErrors] = useState<Record<number, string>>({});
   const autoGenerationAttempted = useRef<Set<number>>(new Set());
   const [busyIds, setBusyIds] = useState<ReadonlySet<number>>(() => new Set());
@@ -679,9 +676,6 @@ export function ClassificationWorkspace({
             </option>
           ))}
         </select>
-        <Button variant="secondary" className="h-8 text-[11px] w-full mt-1" onClick={() => setAssistantOpen(true)}>
-          Open AI assistant
-        </Button>
       </div>
 
       <div className="dd-class-panels">
@@ -827,171 +821,97 @@ export function ClassificationWorkspace({
                 if (ok) goNextUnresolved(activeItem.id);
               });
             }}
-            onSkip={() => goNextUnresolved(activeItem.id)}
-          />
-
-          <section className="dd-class-card mt-3">
-            <button
-              type="button"
-              className="flex w-full items-center justify-between text-left"
-              onClick={() => setAdvancedOpen((value) => !value)}
-            >
-              <span className="text-sm font-semibold">Evidence & product memory</span>
-              <span className="text-[11px] dd-text-muted">{advancedOpen ? "Hide" : "Show"}</span>
-            </button>
-            {advancedOpen && (
-              <div className="mt-3">
-                <ProductResolverPanel
-                  item={activeItem}
-                  supplier={supplierName}
-                  shipmentId={shipmentId}
-                  nearbyDescriptions={nearbyDescriptionsFor(activeItem.id)}
-                  onStatusChange={() => {
-                    // Evidence may improve ranking, but must not override suggestion-first statuses.
-                  }}
-                  onResolutionChange={(resolution: EvidenceProductResolution, confirmed) => {
-                    editItem(invId, activeItem.id, "evidence_resolution", resolution);
-                    editItem(invId, activeItem.id, "parsed_product_clues", resolution.parsed);
-                    if (!confirmed) editItem(invId, activeItem.id, "product_confirmed", false);
-                    const product = resolution.resolvedProduct;
-                    if (confirmed && product) {
-                      const candidate: ProductResolverCandidate = {
-                        canonicalProductId: product.productMasterId || 0,
-                        canonicalName: product.canonicalName,
-                        confidence: resolution.confidence,
-                        source: "manual",
-                        matchedAlias: activeItem.desc,
+            moreDetail={
+              <>
+              <AiAssistantPanel
+                item={activeItem}
+                updating={busyIds.has(activeItem.id)}
+                answers={activeItem.question_answers ?? []}
+                onAnswer={(answers) => setLineAnswers(invId, activeItem.id, answers)}
+                onUpdateClassification={async () => {
+                  const lineId = activeItem.id;
+                  setBusy(lineId, true);
+                  try {
+                    const latest = { ...activeItem, question_answers: activeItem.question_answers ?? [] };
+                    await reanalyzeLine(invId, latest, latest.question_answers ?? [], supplierName);
+                    autoGenerationAttempted.current.delete(lineId);
+                    await generateRecommendation(latest);
+                  } finally {
+                    setBusy(lineId, false);
+                  }
+                }}
+                onSearchSupplierHistory={onNavigateSupplierHistory}
+              />
+              <ProductResolverPanel
+                item={activeItem}
+                supplier={supplierName}
+                shipmentId={shipmentId}
+                nearbyDescriptions={nearbyDescriptionsFor(activeItem.id)}
+                onStatusChange={() => {
+                  // Evidence may improve ranking, but must not override suggestion-first statuses.
+                }}
+                onResolutionChange={(resolution: EvidenceProductResolution, confirmed) => {
+                  editItem(invId, activeItem.id, "evidence_resolution", resolution);
+                  editItem(invId, activeItem.id, "parsed_product_clues", resolution.parsed);
+                  if (!confirmed) editItem(invId, activeItem.id, "product_confirmed", false);
+                  const product = resolution.resolvedProduct;
+                  if (confirmed && product) {
+                    const candidate: ProductResolverCandidate = {
+                      canonicalProductId: product.productMasterId || 0,
+                      canonicalName: product.canonicalName,
+                      confidence: resolution.confidence,
+                      source: "manual",
+                      matchedAlias: activeItem.desc,
+                      industry: product.industry || null,
+                      productFamily: product.productFamily || null,
+                      typicalMaterials: product.material ? [product.material] : [],
+                      typicalChapters: [],
+                      commonUses: product.intendedUse || product.primaryFunction
+                        ? [product.intendedUse || product.primaryFunction]
+                        : [],
+                      typicalAttributes: resolution.missingInformation,
+                      approvedTariff: null,
+                      supplierCount: 0,
+                      previousImports: resolution.evidence.filter((entry) => entry.isApproved).length,
+                      approvalRate: resolution.evidence.some((entry) => entry.isApproved) ? 1 : 0,
+                      reasons: resolution.evidence.slice(0, 4).map((entry) => entry.explanation || entry.matchedValue),
+                    };
+                    setProductResolution(invId, activeItem.id, {
+                      originalDescription: activeItem.desc,
+                      normalizedQuery: resolution.parsed.coreDescription,
+                      status: "identified",
+                      confidence: resolution.confidence,
+                      selected: candidate,
+                      suggestions: [candidate],
+                      missingInformation: resolution.missingInformation,
+                      resolverPath: resolution.evidence.map((entry) => entry.source),
+                    }, candidate, true);
+                    // Improve ranking with confirmed identity, without clearing existing suggestions.
+                    autoGenerationAttempted.current.delete(activeItem.id);
+                    void generateRecommendation({
+                      ...activeItem,
+                      product_confirmed: true,
+                      evidence_resolution: resolution,
+                      product_profile: {
+                        ...(activeItem.product_profile || analyzedFallbackProfile(activeItem.desc)),
+                        productName: product.canonicalName,
+                        productType: product.canonicalName,
+                        material: product.material || activeItem.product_profile?.material || "Unknown",
+                        primaryUse: product.intendedUse || product.primaryFunction || "Unknown",
+                        primaryFunction: product.primaryFunction || product.intendedUse || "Unknown",
                         industry: product.industry || null,
                         productFamily: product.productFamily || null,
-                        typicalMaterials: product.material ? [product.material] : [],
-                        typicalChapters: [],
-                        commonUses: product.intendedUse || product.primaryFunction
-                          ? [product.intendedUse || product.primaryFunction]
-                          : [],
-                        typicalAttributes: resolution.missingInformation,
-                        approvedTariff: null,
-                        supplierCount: 0,
-                        previousImports: resolution.evidence.filter((entry) => entry.isApproved).length,
-                        approvalRate: resolution.evidence.some((entry) => entry.isApproved) ? 1 : 0,
-                        reasons: resolution.evidence.slice(0, 4).map((entry) => entry.explanation || entry.matchedValue),
-                      };
-                      setProductResolution(invId, activeItem.id, {
-                        originalDescription: activeItem.desc,
-                        normalizedQuery: resolution.parsed.coreDescription,
-                        status: "identified",
-                        confidence: resolution.confidence,
-                        selected: candidate,
-                        suggestions: [candidate],
-                        missingInformation: resolution.missingInformation,
-                        resolverPath: resolution.evidence.map((entry) => entry.source),
-                      }, candidate, true);
-                      // Improve ranking with confirmed identity, without clearing existing suggestions.
-                      autoGenerationAttempted.current.delete(activeItem.id);
-                      void generateRecommendation({
-                        ...activeItem,
-                        product_confirmed: true,
-                        evidence_resolution: resolution,
-                        product_profile: {
-                          ...(activeItem.product_profile || analyzedFallbackProfile(activeItem.desc)),
-                          productName: product.canonicalName,
-                          productType: product.canonicalName,
-                          material: product.material || activeItem.product_profile?.material || "Unknown",
-                          primaryUse: product.intendedUse || product.primaryFunction || "Unknown",
-                          primaryFunction: product.primaryFunction || product.intendedUse || "Unknown",
-                          industry: product.industry || null,
-                          productFamily: product.productFamily || null,
-                        },
-                      });
-                    }
-                  }}
-                />
-              </div>
-            )}
-          </section>
-        </div>
-
-        <div className="dd-class-assistant-desktop">
-          <AiAssistantPanel
-            item={activeItem}
-            updating={busyIds.has(activeItem.id)}
-            answers={activeItem.question_answers ?? []}
-            onAnswer={(answers) => setLineAnswers(invId, activeItem.id, answers)}
-            onUpdateClassification={async () => {
-              const lineId = activeItem.id;
-              setBusy(lineId, true);
-              try {
-                const latest = { ...activeItem, question_answers: activeItem.question_answers ?? [] };
-                await reanalyzeLine(invId, latest, latest.question_answers ?? [], supplierName);
-                autoGenerationAttempted.current.delete(lineId);
-                await generateRecommendation(latest);
-              } finally {
-                setBusy(lineId, false);
-              }
-            }}
-            onSearchSupplierHistory={onNavigateSupplierHistory}
+                      },
+                    });
+                  }
+                }}
+              />
+              </>
+            }
           />
-        </div>
-      </div>
 
-      {assistantOpen && (
-        <div className="dd-class-drawer" role="dialog" aria-label="AI assistant">
-          <div className="dd-class-drawer-backdrop" onClick={() => setAssistantOpen(false)} />
-          <div className="dd-class-drawer-panel">
-            <div className="flex justify-between items-center mb-2">
-              <div className="font-semibold text-sm">AI Assistant</div>
-              <button type="button" className="border-none bg-transparent text-sm" onClick={() => setAssistantOpen(false)}>
-                ✕
-              </button>
-            </div>
-            <AiAssistantPanel
-              item={activeItem}
-              updating={busyIds.has(activeItem.id)}
-              answers={activeItem.question_answers ?? []}
-              onAnswer={(answers) => setLineAnswers(invId, activeItem.id, answers)}
-              onUpdateClassification={async () => {
-                const lineId = activeItem.id;
-                setBusy(lineId, true);
-                try {
-                  await reanalyzeLine(invId, activeItem, activeItem.question_answers ?? [], supplierName);
-                  autoGenerationAttempted.current.delete(lineId);
-                  await generateRecommendation(activeItem);
-                } finally {
-                  setBusy(lineId, false);
-                }
-              }}
-              onSearchSupplierHistory={() => {
-                setAssistantOpen(false);
-                onNavigateSupplierHistory();
-              }}
-            />
-          </div>
         </div>
-      )}
 
-      <div className="dd-class-sticky-actions">
-        <Button
-          className="h-9 flex-1 text-[12px]"
-          disabled={busyIds.has(activeItem.id)}
-          onClick={() => {
-            const candidate = preferredCandidate(activeItem);
-            if (candidate) void applyRecommendation(activeItem, candidate, false);
-            else void generateRecommendation(activeItem);
-          }}
-        >
-          {busyIds.has(activeItem.id)
-            ? (preferredCandidate(activeItem) ? "Applying..." : "Generating...")
-            : preferredCandidate(activeItem)
-              ? "Apply Recommendation"
-              : "Generate Suggestions"}
-        </Button>
-        <Button
-          variant="secondary"
-          className="h-9 flex-1 text-[12px]"
-          onClick={() => goNextUnresolved(activeItem.id)}
-        >
-          Next
-        </Button>
-        <Badge tone="blue">{activeIndex + 1}/{items.length}</Badge>
       </div>
 
       {showStrongConfirm && (

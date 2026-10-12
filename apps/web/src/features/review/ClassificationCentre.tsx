@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import type {
   ClassificationRecommendationCandidate,
   LineItem,
@@ -32,7 +32,7 @@ type Props = {
   ) => void;
   onSearchTariff: () => void;
   onApplyAndNext?: () => void;
-  onSkip?: () => void;
+  moreDetail?: ReactNode;
   onUseSupplierEvidence?: () => void;
   onSearchSupplierAgain?: () => void;
   onIgnoreSupplierEvidence?: () => void;
@@ -59,7 +59,7 @@ export function ClassificationCentre({
   onApplyRecommendation,
   onSearchTariff,
   onApplyAndNext,
-  onSkip,
+  moreDetail,
   onUseSupplierEvidence,
   onSearchSupplierAgain,
   onIgnoreSupplierEvidence,
@@ -220,18 +220,27 @@ export function ClassificationCentre({
           </div>
         )}
 
-        {recommendationError && (
-          <div className="dd-class-warn mt-3 text-[12px]">
-            <strong>Classification failed.</strong> {recommendationError}
-          </div>
-        )}
-
         {(recommendation?.warnings?.length || 0) > 0 && (
           <div className="mt-2 text-[11px] dd-text-muted">
             {recommendation?.warnings?.join(" · ")}
           </div>
         )}
       </section>
+
+      {recommendationError && !preferred && (
+        <section className="dd-class-card" role="alert">
+          <div className="text-sm font-semibold">Couldn't classify this line.</div>
+          <div className="mt-1 text-[12px] dd-text-muted">{recommendationError}</div>
+          <div className="mt-3 flex gap-2">
+            <Button onClick={() => onGenerateRecommendation()} disabled={updating}>Retry</Button>
+            <Button variant="secondary" onClick={onSearchTariff}>Search tariff</Button>
+          </div>
+        </section>
+      )}
+
+      {recommendationError && preferred && (
+        <div className="text-[12px]" style={{ color: "var(--red)" }}>{recommendationError}</div>
+      )}
 
       {(supplierEvidence
         || recommendation?.supplierSearchNotification
@@ -483,60 +492,35 @@ export function ClassificationCentre({
           <div className="mt-4 flex flex-wrap gap-2">
             <Button
               onClick={() => {
-                const candidate = editing ? draft : preferred;
-                if (!candidate?.code) return;
-                onApplyRecommendation(candidate, editing);
+                if (editing) {
+                  if (draft?.code) onApplyRecommendation(draft, true);
+                  return;
+                }
+                onApplyAndNext?.();
               }}
-              disabled={(applied && !editing) || !draft?.code}
+              disabled={updating || (editing ? !draft?.code : !preferred?.code || applied)}
             >
-              {applied && !editing
-                ? "Applied"
-                : editing
-                  ? "Apply Edited Classification"
-                  : "Apply Recommendation"}
+              {editing ? "Apply this code" : applied ? "Applied" : "Apply & Next"}
             </Button>
-            {onApplyAndNext && (
-              <Button
-                variant="secondary"
-                onClick={onApplyAndNext}
-                disabled={!preferred?.code || (applied && !editing)}
-              >
-                Apply & Next
-              </Button>
-            )}
-            <Button variant="secondary" onClick={() => setEditing((value) => !value)}>
-              {editing ? "Cancel Edit" : "Edit Classification"}
-            </Button>
-            {candidates.length > 1 && (
-              <Button variant="secondary" onClick={() => setShowAlternatives((value) => !value)}>
-                {showAlternatives ? "Hide Alternatives" : "View Alternatives"}
-              </Button>
-            )}
-            {onSkip && (
-              <Button variant="secondary" onClick={onSkip}>Skip</Button>
-            )}
-            <Button variant="secondary" onClick={onSearchTariff}>
-              Search Tariff
+            <Button variant="secondary" onClick={() => setShowAlternatives((v) => !v)}>
+              {showAlternatives ? "Hide choices" : "Choose another"}
             </Button>
             {question && (
               <Button
                 variant="secondary"
-                onClick={() => {
-                  const el = document.getElementById("dd-clarification-question");
-                  el?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-                }}
+                onClick={() => document.getElementById("dd-clarification-question")?.scrollIntoView({ behavior: "smooth", block: "nearest" })}
               >
-                Answer Question
+                Answer question
               </Button>
             )}
-            <Button variant="secondary" onClick={() => onGenerateRecommendation()} disabled={updating}>
-              {updating ? "Generating..." : "Regenerate"}
-            </Button>
+            <Button variant="secondary" onClick={onSearchTariff}>Search tariff</Button>
           </div>
 
-          {showAlternatives && candidates.length > 1 && (
+          {showAlternatives && (
             <div className="mt-4 border-t pt-3 space-y-2" style={{ borderColor: "var(--border)" }}>
-              <div className="text-[11px] font-semibold">Alternatives</div>
+              {candidates.length > 1 && (
+                <div className="text-[11px] font-semibold">Alternatives</div>
+              )}
               {candidates.slice(1).map((alternative) => (
                 <div
                   key={alternative.code}
@@ -562,6 +546,14 @@ export function ClassificationCentre({
                   </Button>
                 </div>
               ))}
+              <div className="flex flex-wrap gap-2">
+                <Button variant="secondary" onClick={() => setEditing((value) => !value)}>
+                  {editing ? "Cancel" : "Enter a different code"}
+                </Button>
+                <Button variant="secondary" onClick={() => onGenerateRecommendation()} disabled={updating}>
+                  {updating ? "Generating..." : "Regenerate"}
+                </Button>
+              </div>
             </div>
           )}
         </section>
@@ -599,9 +591,10 @@ export function ClassificationCentre({
           className="flex w-full items-center justify-between text-left"
           onClick={() => setAdvancedOpen((value) => !value)}
         >
-          <span className="text-sm font-semibold">Advanced details</span>
+          <span className="text-sm font-semibold">More detail</span>
           <span className="text-[11px] dd-text-muted">{advancedOpen ? "Hide" : "Show"}</span>
         </button>
+        {advancedOpen && moreDetail && <div className="mt-3 space-y-3">{moreDetail}</div>}
         {advancedOpen && (
           <div className="mt-3 dd-class-grid">
             <label className="dd-class-field">
