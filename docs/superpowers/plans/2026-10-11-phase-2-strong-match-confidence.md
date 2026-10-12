@@ -1270,3 +1270,35 @@ Repo root: `npm run typecheck` (exit 0) and `npm test` (all workspaces pass). Re
 Do not exercise Brokerage sends (local env points at live FlowBoard).
 
 - [ ] **Step 3: Record results** in `.superpowers/sdd/progress.md` (create if missing) — commands run, counts, what was checked in the browser, anything not exercised.
+
+---
+
+### Task 7: History counts as approved only after two hand-applies (added after browser check)
+
+**Why:** every hand-apply and batch apply saves a learned pair, so one hasty apply of a weak suggestion became "approved history" (Strong) and batch apply then spread it with nobody looking. User decision: a remembered code is approved (Strong, batch-applyable) only after a clerk applies the **same code by hand twice** for that description. With one apply it is still suggested first, labelled Likely. Batch apply does not count. Changing the code resets the count.
+
+**Files:**
+- Modify: `apps/worker/src/routes/learned.ts` (POST upsert)
+- Modify: `apps/worker/src/routes/supplier-history.ts` (POST upsert)
+- Modify: `apps/worker/src/lib/classification-history.ts` (+ test)
+- Modify: `packages/shared-types/src/index.ts` (`CandidateEvidence`)
+- Modify: `packages/product-intelligence/src/confidence-calibration.ts` (+ test)
+- Modify: `apps/worker/src/lib/candidate-evidence.ts` (+ test)
+- Modify: `apps/worker/src/routes/classification-lines.ts` (history context)
+- Modify: `apps/web/src/features/review/classification-helpers.ts` (+ test)
+- Modify: `apps/web/src/features/review/ClassificationWorkspace.tsx` (batch apply does not teach)
+
+**Rules:**
+- `learned` POST: if a row exists with a **different** `tariff_code`, `uses = 1`; same code → `uses + 1`; new row → `1`.
+- `supplier_classification_history` POST: when updating an existing row whose `hs_code` differs from the new one, `usage_count = 1`; same code → `+1`.
+- `HistoryHit` gains `confirmations: number` (`learned.uses` / `supplier_classification_history.usage_count`, default 1 when null).
+- `CandidateEvidence` gains `historyConfirmations: number` (0 when no history match). Older evidence without the field is treated as 0 (fail closed).
+- `EvidenceContext.history` gains `confirmations: number`; `buildCandidateEvidence` sets `historyConfirmations` to it when the candidate matches history, else 0. `supplier_evidence` history (from an approved supplier product record) is always passed with `confirmations: 1` — it has no reliable per-code count.
+- `calibrateConfidence`: new exported constant `HISTORY_CONFIRMATIONS_REQUIRED = 2`. History short-circuit (0.96, Strong) only when `historyMatch` set, no contradictions, no `historyConflict`, **and** `historyConfirmations >= 2`. Unconfirmed history with no contradiction/conflict scores `0.75` (Likely) with signal `"Applied once before for this item — confirm"`; vague-description penalty and provisional cap still apply after it. Contradicted/conflicting history keeps the existing fall-through path.
+- `isAutoApplyable`: the approved-history bypass (questions and family/compatibility) applies only when `historyMatch` is set **and** `(historyConfirmations ?? 0) >= 2`.
+- Worker route: the history-first branch still puts the history code first for any confirmation count; status is `"recommended"` only if calibration yields Strong (already the case).
+- Web: `applyRecommendation` gets an option so batch apply does **not** call `saveLearnedPair` (single hand-applies still do). Do not change other memory writes.
+
+**Tests (TDD):** learned upsert reset/increment (worker test with fake D1 or extracted pure helper `nextUses(existing, code)`), supplier-history reset/increment (same approach), `findHistoryCode` returns `confirmations`, calibration (confirmed → Strong 0.96; unconfirmed → Likely 0.75 with the signal; unconfirmed + vague → 0.6, not Strong; missing field → unconfirmed), evidence builder sets/zeros `historyConfirmations`, `isAutoApplyable` (unconfirmed history with unanswered required question → rejected; confirmed → accepted). Update existing tests that assumed one history hit is Strong to use `historyConfirmations: 2`.
+
+**Verify:** repo-root typecheck + `npm test`; local smoke: learned row with `uses = 1` → `recommendations[0]` is the history code, Likely, status provisional; with `uses = 2` → Strong, recommended.
