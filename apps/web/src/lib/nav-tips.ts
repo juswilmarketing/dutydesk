@@ -7,8 +7,8 @@ export const NAV_TAB_TIPS: Record<string, string> = {
   "/duties-taxes": "Calculate customs duty, VAT, CIF, and fees — with or without a loaded invoice.",
   "/brokerage": "Brokerage fees, FlowBoard delivery and ASYCUDA export.",
   "/worksheet": "Review the customs worksheet summary and send to FlowBoard for customer delivery.",
-  "/learned": "View and manage learning rules from past classifications (admin).",
-  "/reports": "History of worksheets and tax advice — synced across the team (admin).",
+  "/learned": "Tariff codes the team has confirmed, reused automatically on similar items.",
+  "/reports": "History of worksheets and tax advice, synced across the team.",
   "/users": "Manage clerk accounts and roles (admin).",
   "/admin/integrations": "FlowBoard webhook and integration settings (admin).",
 };
