@@ -5,10 +5,10 @@ export const TEST_CASE_ROWS: TestCaseRow[] = [
   {
     "id": 1,
     "raw_description": "B TOWELS",
-    "supplier": "null",
+    "supplier": null,
     "expected_chapter": "63",
     "expected_heading": "6302",
-    "expected_tariff": "null",
+    "expected_tariff": null,
     "acceptable_alternatives_json": "[\"6302\"]",
     "prohibited_chapters_json": "[\"01\",\"02\",\"20\",\"28\",\"84\",\"85\"]",
     "source": "seed"
@@ -16,10 +16,10 @@ export const TEST_CASE_ROWS: TestCaseRow[] = [
   {
     "id": 2,
     "raw_description": "BATH TOWELS",
-    "supplier": "null",
+    "supplier": null,
     "expected_chapter": "63",
     "expected_heading": "6302",
-    "expected_tariff": "null",
+    "expected_tariff": null,
     "acceptable_alternatives_json": "[\"6302\"]",
     "prohibited_chapters_json": "[\"01\",\"02\",\"20\",\"28\",\"84\",\"85\"]",
     "source": "seed"
@@ -27,10 +27,10 @@ export const TEST_CASE_ROWS: TestCaseRow[] = [
   {
     "id": 3,
     "raw_description": "PAPER TOWELS",
-    "supplier": "null",
+    "supplier": null,
     "expected_chapter": "48",
-    "expected_heading": "null",
-    "expected_tariff": "null",
+    "expected_heading": null,
+    "expected_tariff": null,
     "acceptable_alternatives_json": "[\"4818\"]",
     "prohibited_chapters_json": "[\"63\",\"01\",\"84\"]",
     "source": "seed"
@@ -38,10 +38,10 @@ export const TEST_CASE_ROWS: TestCaseRow[] = [
   {
     "id": 4,
     "raw_description": "SHOWER CAPS",
-    "supplier": "null",
-    "expected_chapter": "null",
-    "expected_heading": "null",
-    "expected_tariff": "null",
+    "supplier": null,
+    "expected_chapter": null,
+    "expected_heading": null,
+    "expected_tariff": null,
     "acceptable_alternatives_json": "[\"3926\",\"6505\",\"6307\"]",
     "prohibited_chapters_json": "[\"01\",\"20\",\"84\"]",
     "source": "seed"
@@ -49,10 +49,10 @@ export const TEST_CASE_ROWS: TestCaseRow[] = [
   {
     "id": 5,
     "raw_description": "PLASTIC SHOWER CAPS",
-    "supplier": "null",
+    "supplier": null,
     "expected_chapter": "39",
-    "expected_heading": "null",
-    "expected_tariff": "null",
+    "expected_heading": null,
+    "expected_tariff": null,
     "acceptable_alternatives_json": "[\"3926\"]",
     "prohibited_chapters_json": "[\"01\",\"20\",\"63\",\"65\"]",
     "source": "seed"
@@ -60,10 +60,10 @@ export const TEST_CASE_ROWS: TestCaseRow[] = [
   {
     "id": 6,
     "raw_description": "NONWOVEN SHOWER CAPS",
-    "supplier": "null",
+    "supplier": null,
     "expected_chapter": "63",
-    "expected_heading": "null",
-    "expected_tariff": "null",
+    "expected_heading": null,
+    "expected_tariff": null,
     "acceptable_alternatives_json": "[\"6307\",\"6505\"]",
     "prohibited_chapters_json": "[\"01\",\"20\",\"39\"]",
     "source": "seed"
@@ -71,10 +71,10 @@ export const TEST_CASE_ROWS: TestCaseRow[] = [
   {
     "id": 7,
     "raw_description": "FL-ACT FLEXLAG ACTIVATOR",
-    "supplier": "null",
+    "supplier": null,
     "expected_chapter": "38",
-    "expected_heading": "null",
-    "expected_tariff": "null",
+    "expected_heading": null,
+    "expected_tariff": null,
     "acceptable_alternatives_json": "[\"38\",\"35\"]",
     "prohibited_chapters_json": "[\"01\",\"20\",\"63\",\"84\"]",
     "source": "seed"
@@ -82,10 +82,10 @@ export const TEST_CASE_ROWS: TestCaseRow[] = [
   {
     "id": 8,
     "raw_description": "3M METAL RESTORER AND POLISH",
-    "supplier": "null",
+    "supplier": null,
     "expected_chapter": "34",
     "expected_heading": "3405",
-    "expected_tariff": "null",
+    "expected_tariff": null,
     "acceptable_alternatives_json": "[\"3405\"]",
     "prohibited_chapters_json": "[\"20\"]",
     "source": "seed"
@@ -93,10 +93,10 @@ export const TEST_CASE_ROWS: TestCaseRow[] = [
   {
     "id": 9,
     "raw_description": "LADIES SANDALS",
-    "supplier": "null",
+    "supplier": null,
     "expected_chapter": "64",
-    "expected_heading": "null",
-    "expected_tariff": "null",
+    "expected_heading": null,
+    "expected_tariff": null,
     "acceptable_alternatives_json": "[\"6402\",\"6403\",\"6404\"]",
     "prohibited_chapters_json": "[\"01\",\"20\",\"84\"]",
     "source": "seed"
@@ -104,10 +104,10 @@ export const TEST_CASE_ROWS: TestCaseRow[] = [
   {
     "id": 10,
     "raw_description": "LED DRIVER",
-    "supplier": "null",
+    "supplier": null,
     "expected_chapter": "85",
-    "expected_heading": "null",
-    "expected_tariff": "null",
+    "expected_heading": null,
+    "expected_tariff": null,
     "acceptable_alternatives_json": "[\"8504\",\"8537\"]",
     "prohibited_chapters_json": "[\"01\",\"20\",\"63\"]",
     "source": "seed"
@@ -115,10 +115,10 @@ export const TEST_CASE_ROWS: TestCaseRow[] = [
   {
     "id": 11,
     "raw_description": "STAINLESS STEEL TANK",
-    "supplier": "null",
+    "supplier": null,
     "expected_chapter": "73",
-    "expected_heading": "null",
-    "expected_tariff": "null",
+    "expected_heading": null,
+    "expected_tariff": null,
     "acceptable_alternatives_json": "[\"7309\",\"7311\"]",
     "prohibited_chapters_json": "[\"01\",\"20\",\"63\"]",
     "source": "seed"
@@ -126,10 +126,10 @@ export const TEST_CASE_ROWS: TestCaseRow[] = [
   {
     "id": 12,
     "raw_description": "CAMPING COT",
-    "supplier": "null",
+    "supplier": null,
     "expected_chapter": "94",
-    "expected_heading": "null",
-    "expected_tariff": "null",
+    "expected_heading": null,
+    "expected_tariff": null,
     "acceptable_alternatives_json": "[\"9401\",\"9403\"]",
     "prohibited_chapters_json": "[\"01\",\"20\"]",
     "source": "seed"
@@ -137,10 +137,10 @@ export const TEST_CASE_ROWS: TestCaseRow[] = [
   {
     "id": 13,
     "raw_description": "DICED TOMATOES",
-    "supplier": "null",
+    "supplier": null,
     "expected_chapter": "20",
-    "expected_heading": "null",
-    "expected_tariff": "null",
+    "expected_heading": null,
+    "expected_tariff": null,
     "acceptable_alternatives_json": "[\"2002\"]",
     "prohibited_chapters_json": "[\"63\",\"84\",\"85\"]",
     "source": "seed"
@@ -148,10 +148,10 @@ export const TEST_CASE_ROWS: TestCaseRow[] = [
   {
     "id": 14,
     "raw_description": "VOLTAGE PROTECTOR",
-    "supplier": "null",
+    "supplier": null,
     "expected_chapter": "85",
-    "expected_heading": "null",
-    "expected_tariff": "null",
+    "expected_heading": null,
+    "expected_tariff": null,
     "acceptable_alternatives_json": "[\"8535\",\"8536\",\"8543\"]",
     "prohibited_chapters_json": "[\"01\",\"20\",\"63\"]",
     "source": "seed"
@@ -159,10 +159,10 @@ export const TEST_CASE_ROWS: TestCaseRow[] = [
   {
     "id": 15,
     "raw_description": "COPPER TUBES",
-    "supplier": "null",
+    "supplier": null,
     "expected_chapter": "74",
-    "expected_heading": "null",
-    "expected_tariff": "null",
+    "expected_heading": null,
+    "expected_tariff": null,
     "acceptable_alternatives_json": "[\"7411\"]",
     "prohibited_chapters_json": "[\"01\",\"20\",\"63\"]",
     "source": "seed"

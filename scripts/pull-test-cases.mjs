@@ -23,7 +23,12 @@ if (result.status !== 0) {
 }
 const start = result.stdout.indexOf("[");
 const parsed = JSON.parse(result.stdout.slice(start));
-const rows = parsed[0]?.results ?? [];
+// wrangler d1 execute --json renders SQL NULL as the string "null".
+const rows = (parsed[0]?.results ?? []).map((row) =>
+  Object.fromEntries(
+    Object.entries(row).map(([key, value]) => [key, value === "null" ? null : value]),
+  ),
+);
 
 mkdirSync(dirname(outFile), { recursive: true });
 writeFileSync(
