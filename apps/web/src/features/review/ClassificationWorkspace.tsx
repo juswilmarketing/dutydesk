@@ -367,7 +367,6 @@ export function ClassificationWorkspace({
           code: tariffHit?.code || applied.code,
           description: tariffHit?.desc || applied.description,
           provisional: false,
-          confidenceLabel: "Strong Match",
         },
       );
 

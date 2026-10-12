@@ -595,13 +595,15 @@ export function isAutoApplyable(
   const rec = item.classification_recommendation;
   if (rec?.question) return false;
   if (rec?.status === "clarification_needed" || rec?.status === "unable_to_classify") return false;
-  if ((item.pending_questions?.length ?? 0) > 0) return false;
   if (item.classification_status && BLOCKING_LINE_STATUSES.has(item.classification_status)) return false;
   if (item.classification_conflict) return false;
 
   const e = candidate.evidence;
   if (!e) return false;
-  if (e.historyConflict || e.contradictions.length > 0) return false;
+  if (e.historyConflict || (e.contradictions?.length ?? 0) > 0) return false;
+  // Approved history resolves the upfront line-level questions; otherwise only
+  // an unanswered REQUIRED question blocks (the parser always adds optional ones).
   if (e.historyMatch) return true;
+  if (!hasAnsweredRequired(item)) return false;
   return e.familyResolved && e.compatibilityPassed;
 }
