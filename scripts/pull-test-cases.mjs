@@ -1,34 +1,71 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { dirname, resolve } from "node:path";
+import { dirname, relative, resolve } from "node:path";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const remote = process.argv.includes("--remote");
 const outFile = resolve(root, "apps/worker/src/lib/fixtures/test-cases.generated.ts");
+const relOut = relative(root, outFile).replaceAll("\\", "/");
+const NULLABLE = new Set([
+  "supplier",
+  "expected_chapter",
+  "expected_heading",
+  "expected_tariff",
+]);
 const query = [
   "SELECT id, raw_description, supplier, expected_chapter, expected_heading, expected_tariff,",
   "acceptable_alternatives_json, prohibited_chapters_json, source",
   "FROM classification_test_cases WHERE active = 1 ORDER BY id",
 ].join(" ");
 
+function die(message) {
+  process.stderr.write(message.endsWith("\n") ? message : `${message}\n`);
+  process.exit(1);
+}
+
 // The query contains no double quotes, so wrapping it is safe for both cmd.exe and sh.
 const result = spawnSync(
   `npx wrangler d1 execute pas-trinidad ${remote ? "--remote" : "--local"} --json --command "${query}"`,
   { cwd: root, encoding: "utf8", shell: true, maxBuffer: 64 * 1024 * 1024 },
 );
-if (result.status !== 0) {
-  process.stderr.write(result.stderr || result.stdout || "wrangler failed\n");
-  process.exit(result.status ?? 1);
+if (result.error) {
+  die(String(result.error));
 }
-const start = result.stdout.indexOf("[");
-const parsed = JSON.parse(result.stdout.slice(start));
+if (result.status !== 0) {
+  die(result.stderr || result.stdout || "wrangler failed");
+}
+
+const stdout = result.stdout ?? "";
+const jsonStart = stdout.search(/^\[/m);
+if (jsonStart < 0) {
+  die(stdout || "no JSON array in wrangler output");
+}
+
+let parsed;
+try {
+  parsed = JSON.parse(stdout.slice(jsonStart));
+} catch {
+  die(stdout);
+}
+
+const block = parsed[0];
+if (block?.success !== true || !Array.isArray(block.results)) {
+  die(stdout);
+}
+
 // wrangler d1 execute --json renders SQL NULL as the string "null".
-const rows = (parsed[0]?.results ?? []).map((row) =>
-  Object.fromEntries(
-    Object.entries(row).map(([key, value]) => [key, value === "null" ? null : value]),
-  ),
-);
+const rows = block.results.map((row) => {
+  const out = { ...row };
+  for (const key of NULLABLE) {
+    if (out[key] === "null") out[key] = null;
+  }
+  return out;
+});
+
+if (rows.length === 0) {
+  die("no active classification_test_cases rows (expected seed data from migration 0018)");
+}
 
 mkdirSync(dirname(outFile), { recursive: true });
 writeFileSync(
@@ -38,4 +75,4 @@ writeFileSync(
     + `export const TEST_CASE_ROWS: TestCaseRow[] = ${JSON.stringify(rows, null, 2)};\n`,
   "utf8",
 );
-console.log(`Wrote ${rows.length} active test cases to ${outFile}`);
+console.log(`Wrote ${rows.length} active test cases to ${relOut}`);
