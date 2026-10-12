@@ -34,6 +34,15 @@ export function matchTypeLabel(source: LineItem["source"], hasCode: boolean, exp
   return "Manual Classification";
 }
 
+const APPLIED_STATUSES = new Set(["Applied", "AI Applied", "Clerk Edited"]);
+
+/** A line counts as classified once a code is applied, regardless of whether AI suggested it. */
+export function isLineClassified(item: LineItem): boolean {
+  if (!item.tariff_code) return false;
+  if (item.classification_status) return APPLIED_STATUSES.has(item.classification_status);
+  return item.source !== "ai";
+}
+
 export function confidenceTone(
   source: LineItem["source"],
   hasCode: boolean,
@@ -96,9 +105,7 @@ export function getInvoiceQueueStatus(
     return "extracting";
   }
 
-  const needsReview = inv.items.some(
-    (i) => i.source === "ai" || i.status === "needs_review" || !i.tariff_code,
-  );
+  const needsReview = inv.items.some((i) => i.status === "needs_review" || !isLineClassified(i));
   if (needsReview) return "needs_review";
 
   const ws = invoiceWorksheetNum(inv, taxInputs);
@@ -137,7 +144,7 @@ export function getWorkflowStages(
   const fbEntry = inv ? flowboardEntryForInvoice(inv, taxLog, taxInputs) : null;
   const hasItems = !!inv && inv.items.length > 0;
   const classifying = inv?.items.some((i) => i.status === "loading");
-  const needsReview = inv?.items.some((i) => i.source === "ai" || !i.tariff_code);
+  const needsReview = inv?.items.some((i) => !isLineClassified(i));
   const classified = hasItems && !classifying && !needsReview;
   const hasTax =
     (taxInputs.manualDuty ?? "") !== "" ||
