@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { aiResponseStatus } from "./ai-response-status";
+import { aiResponseStatus, classificationLineStatusForRecommendation } from "./ai-response-status";
 
 const ok = { question: null, provisional: false, selectedConfidence: 0.8, parsed: true };
 
@@ -30,5 +30,14 @@ describe("aiResponseStatus", () => {
   it("does not ask for clarification just because a question exists", () => {
     expect(aiResponseStatus({ ...ok, question: { id: "q1" } })).toBe("recommended");
     expect(aiResponseStatus({ ...ok, question: { id: "q1" }, parsed: false })).toBe("provisional");
+  });
+});
+
+describe("classificationLineStatusForRecommendation", () => {
+  it("maps abstention and provisional API statuses to line labels", () => {
+    expect(classificationLineStatusForRecommendation("unable_to_classify")).toBe("Needs Manual Review");
+    expect(classificationLineStatusForRecommendation("clarification_needed")).toBe("More Information Needed");
+    expect(classificationLineStatusForRecommendation("provisional")).toBe("Provisional Suggestion");
+    expect(classificationLineStatusForRecommendation("recommended")).toBe("Suggestion Ready");
   });
 });

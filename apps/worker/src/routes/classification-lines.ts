@@ -29,7 +29,8 @@ import { audit } from "../lib/utils";
 import { verifyCandidateWithTtbizlink } from "../lib/ttbizlink";
 import { findHistoryCode } from "../lib/classification-history";
 import { historyWording } from "../lib/history-confirmations";
-import { aiResponseStatus } from "../lib/ai-response-status";
+import { aiResponseStatus, classificationLineStatusForRecommendation } from "../lib/ai-response-status";
+import { resolveAiRankingOutcome } from "../lib/ai-ranking-outcome";
 import {
   calibrateCandidate,
   familyResolvedFor,
@@ -700,7 +701,7 @@ lines.post("/:lineId/recommendation", async (c) => {
        SET classification_status = ?, product_profile_json = ?, updated_at = datetime('now') WHERE line_id = ?`,
     )
       .bind(
-        response.status === "clarification_needed" ? "More Information Needed" : "Suggestion Ready",
+        classificationLineStatusForRecommendation(response.status),
         JSON.stringify(profileFromEngine),
         lineId,
       )
@@ -857,37 +858,55 @@ ${JSON.stringify(en.excerptsForPrompt)}`;
 
       const allowed = new Map(candidates.map((candidate) => [normalizedCode(candidate.hs_code), candidate]));
       const rawSelected = parsed?.selectedCode;
-      let selected =
+      const selectedFromList =
         rawSelected == null || String(rawSelected).trim() === "" || /^null$/i.test(String(rawSelected))
           ? null
           : allowed.get(normalizedCode(String(rawSelected))) || null;
 
-      // Hard reject invented codes
-      if (rawSelected && !selected) {
+      if (rawSelected && !selectedFromList) {
         warnings.push(`AI returned code ${rawSelected} that was not in retrieved candidates — rejected.`);
         console.warn("[classification] invalid_ai_code", { lineId, rawSelected });
-        selected = null;
       }
-      const aiPicked = Boolean(selected);
 
-      // If AI abstains or returns invalid JSON, keep retrieval ranking
-      if (!selected) {
-        selected = candidates[0];
-        selectedReason = parsed?.reason
-          || "Provisional retrieved match — confirm missing attributes before relying on this code.";
-        selectedConfidence = Math.min(selected.score, 0.55);
-      } else {
-        selectedConfidence = Number.isFinite(parsed?.confidence)
-          ? Number(parsed!.confidence)
-          : selected.score;
-        selectedReason = parsed?.reason || selectedReason;
+      const outcome = resolveAiRankingOutcome({
+        parsed,
+        rawSelected,
+        selectedFromList,
+        candidates,
+        defaultReason: selectedReason,
+      });
+
+      if (outcome.kind === "abstain") {
+        const question = engineQuestion;
+        const status = question ? "clarification_needed" : "unable_to_classify";
+        console.log("[classification]", JSON.stringify({
+          lineId,
+          finalRecommendations: [],
+          status,
+          question: question?.id || null,
+          aiAbstained: true,
+        }));
+        const aiResponse = await persistAndRespond({
+          status,
+          recommendations: [],
+          question,
+          warnings: [...warnings, outcome.reason],
+        });
+        await audit(c, "classification_recommendation_generated");
+        return aiResponse;
       }
+
+      const selected = outcome.selected;
+      selectedReason = outcome.reason;
+      selectedConfidence = outcome.confidence;
+      const aiPicked = outcome.kind === "picked";
+      const aiParsedForStatus = outcome.kind === "picked";
 
       ranked = [
         selected,
-        ...candidates.filter((candidate) => normalizedCode(candidate.hs_code) !== normalizedCode(selected!.hs_code)),
+        ...candidates.filter((candidate) => normalizedCode(candidate.hs_code) !== normalizedCode(selected.hs_code)),
       ];
-      const altReasons = parsed?.altReasons || {};
+      const altReasons = outcome.kind === "picked" ? outcome.altReasons : {};
       const recommendations = ranked.slice(0, 3).map((candidate, index) => {
         const scoredHit = scored.find((s) => normalizedCode(s.code) === normalizedCode(candidate.hs_code));
         const reason = index === 0
@@ -900,7 +919,7 @@ ${JSON.stringify(en.excerptsForPrompt)}`;
           candidate,
           reason,
           index === 0 ? selectedConfidence : candidate.score,
-          provisional || selectedConfidence < 0.55 || !parsed,
+          provisional || selectedConfidence < 0.55 || !aiParsedForStatus,
         );
       });
 
@@ -917,14 +936,14 @@ ${JSON.stringify(en.excerptsForPrompt)}`;
       const verified = [verifiedRecommended, ...verifiedAlternatives].filter(Boolean);
       const aiCtx: EvidenceContext = {
         ...evidenceBase,
-        aiUsed: Boolean(parsed),
-        aiSelectedCode: aiPicked ? selected!.hs_code : null,
+        aiUsed: aiParsedForStatus,
+        aiSelectedCode: aiPicked ? selected.hs_code : null,
         aiConfidence: aiPicked && Number.isFinite(parsed?.confidence) ? Number(parsed!.confidence) : null,
       };
-      const candidateProvisional = provisional || selectedConfidence < 0.55 || !parsed;
+      const candidateProvisional = provisional || selectedConfidence < 0.55 || !aiParsedForStatus;
       const calibrated = verified.map((cand) => calibrateCandidate(cand, aiCtx, candidateProvisional));
       const question = engineQuestion;
-      const status = aiResponseStatus({ question, provisional, selectedConfidence, parsed: Boolean(parsed) });
+      const status = aiResponseStatus({ question, provisional, selectedConfidence, parsed: aiParsedForStatus });
 
       console.log("[classification]", JSON.stringify({
         lineId,
