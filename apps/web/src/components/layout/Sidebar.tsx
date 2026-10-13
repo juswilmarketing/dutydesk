@@ -129,7 +129,12 @@ export function Sidebar({
       aria-hidden={isPhone && !drawerOpen ? true : undefined}
     >
       <div className="dd-side-brand">
-        <img src={DUTY_DESK_LOGO_SRC} alt="" aria-hidden className="h-9 w-auto shrink-0" />
+        <img
+          src={DUTY_DESK_LOGO_SRC}
+          alt=""
+          aria-hidden
+          className="h-9 w-[34px] shrink-0 object-cover object-left"
+        />
         {!rail && <span className="dd-side-wordmark">Duty Desk</span>}
       </div>
 
