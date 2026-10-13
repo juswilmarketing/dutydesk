@@ -552,10 +552,14 @@ lines.post("/:lineId/recommendation", async (c) => {
     },
   };
 
+  const interpretedNoun =
+    hierarchical.profile.productNoun
+    || hierarchical.profile.canonicalProduct
+    || body.originalDescription.trim().slice(0, 80);
   const interpretation: ClassificationInterpretation = {
-    productName: hierarchical.profile.canonicalProduct || body.originalDescription.trim().slice(0, 80),
+    productName: interpretedNoun,
     // productType = identified merchandise noun; family lives on profile.productFamily
-    productType: hierarchical.profile.canonicalProduct || hierarchical.profile.productNoun || "Product",
+    productType: interpretedNoun,
     likelyMaterial: hierarchical.profile.material || "Unknown",
     primaryFunction: hierarchical.profile.primaryFunction || "Unknown",
     industry: hierarchical.profile.productFamily || hierarchical.profile.industry || "General",

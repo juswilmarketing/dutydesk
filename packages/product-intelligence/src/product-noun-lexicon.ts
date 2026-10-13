@@ -259,7 +259,29 @@ export const PRODUCT_NOUN_LEXICON: NounLexiconEntry[] = [
     searchTerms: ["air conditioning machines", "air conditioners"],
     confidence: 0.84,
   },
-  // Apparel / footwear
+  // Apparel before footwear — description nouns like "pants" must win over weak supplier SKU hits
+  {
+    test: /\b(pants|trousers?|slacks|jeans)\b/i,
+    canonical: "trousers / pants",
+    noun: "pants",
+    family: "apparel",
+    industry: "apparel",
+    primaryFunction: "clothing",
+    likelyChapters: ["61", "62"],
+    searchTerms: ["trousers", "pants", "garments"],
+    confidence: 0.9,
+  },
+  {
+    test: /\b(shorts|leggings|joggers|skirt|skirts|blouse|blouses|shirt|shirts|dress|dresses|jacket|jackets|garments?)\b/i,
+    canonical: "apparel",
+    noun: "garment",
+    family: "apparel",
+    industry: "apparel",
+    primaryFunction: "clothing",
+    likelyChapters: ["61", "62"],
+    searchTerms: ["garments", "clothing", "trousers", "pants"],
+    confidence: 0.88,
+  },
   {
     test: /\b(shoe|shoes|sandal|sandals|boot|boots|sneaker|sneakers|footwear)\b/i,
     canonical: "footwear",
@@ -271,17 +293,6 @@ export const PRODUCT_NOUN_LEXICON: NounLexiconEntry[] = [
     preferredHeadings: ["6402", "6403", "6404"],
     searchTerms: ["footwear"],
     confidence: 0.82,
-  },
-  {
-    test: /\b(shirt|shirts|trouser|trousers|dress|dresses|jacket|jackets|garment)\b/i,
-    canonical: "apparel",
-    noun: "garment",
-    family: "apparel",
-    industry: "apparel",
-    primaryFunction: "clothing",
-    likelyChapters: ["61", "62"],
-    searchTerms: ["garments", "clothing"],
-    confidence: 0.75,
   },
   // Tools
   {

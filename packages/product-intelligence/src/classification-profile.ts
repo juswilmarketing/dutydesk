@@ -88,9 +88,25 @@ const STOP = new Set([
   "pack", "pcs", "pc", "ea", "each", "box", "ctn", "carton", "new", "assorted",
 ]);
 
+const STYLE_WORDS_NOT_SKU = /^(SOLID|SLIM|POLY|RAYON|COTTON|LINEN|CLASSIC|REGULAR|FITTED|RELAXED)$/i;
+
 function extractSku(raw: string): string {
   const m = raw.match(/\b([A-Z]{1,6}[-/]?[A-Z0-9]{2,}(?:[-/][A-Z0-9]+)*)\b/);
-  return m ? m[1].toUpperCase() : "";
+  if (!m) return "";
+  const sku = m[1].toUpperCase();
+  if (STYLE_WORDS_NOT_SKU.test(sku)) return "";
+  return sku;
+}
+
+/** Invoice line says apparel but supplier evidence says footwear (often a bad SKU match). */
+export function supplierEvidenceConflictsWithDescription(
+  rawDescription: string,
+  evidenceCanonical: string | undefined,
+): boolean {
+  if (!evidenceCanonical?.trim()) return false;
+  const descHit = matchProductNounLexicon(rawDescription);
+  if (!descHit || descHit.family !== "apparel") return false;
+  return /footwear|\bshoe\b|\bboot\b|\bsandal\b/i.test(evidenceCanonical);
 }
 
 function extractBrand(raw: string, expanded: string): string {
@@ -540,8 +556,11 @@ export function buildProductClassificationProfile(
     }
   }
 
+  const evidenceCanonicalEarly = context?.productEvidence?.canonicalProduct?.trim();
+  const ignoreEvidenceCanonical = supplierEvidenceConflictsWithDescription(raw, evidenceCanonicalEarly);
+
   // Apply structured supplier evidence when stronger than weak consignee industry
-  if (context?.productEvidence?.canonicalProduct) {
+  if (context?.productEvidence?.canonicalProduct && !ignoreEvidenceCanonical) {
     if (context.productEvidence.material) material = context.productEvidence.material;
     if (context.productEvidence.primaryFunction) primaryFunction = context.productEvidence.primaryFunction;
   }
@@ -617,11 +636,10 @@ export function buildProductClassificationProfile(
       .join("; ")
     : "";
 
-  const evidenceCanonical = context?.productEvidence?.canonicalProduct?.trim();
   // Exact product noun from common dictionary overrides weak consignee/evidence labels
   const canonicalProduct =
     common?.canonicalProduct
-    || evidenceCanonical
+    || (ignoreEvidenceCanonical ? undefined : evidenceCanonicalEarly)
     || plugin?.canonicalProduct
     || rule?.canonical
     || lexicon?.canonical

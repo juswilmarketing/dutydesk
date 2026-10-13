@@ -18,6 +18,7 @@ import {
   buildProductClassificationProfile,
   profileSearchQuery,
   CUSTOMER_INDUSTRY_WEIGHT_MAX,
+  supplierEvidenceConflictsWithDescription,
   type ProductClassificationProfile,
 } from "./classification-profile";
 import { getPluginById } from "./plugins";
@@ -374,6 +375,13 @@ export function classifyHierarchically(
   },
 ): HierarchicalClassificationResult {
   const profile = buildProductClassificationProfile(rawDescription, clarification, context);
+  const warnings: string[] = [];
+  const evidenceCanonical = context?.productEvidence?.canonicalProduct?.trim();
+  if (supplierEvidenceConflictsWithDescription(rawDescription, evidenceCanonical)) {
+    warnings.push(
+      `Ignored supplier product label "${evidenceCanonical}" — the invoice line describes apparel (${profile.productNoun || "clothing"}).`,
+    );
+  }
   if (profile.nonMerchandise) {
     return {
       profile,
@@ -381,7 +389,7 @@ export function classifyHierarchically(
       candidates: [],
       recommendationStatus: "insufficient",
       criticalQuestion: null,
-      warnings: ["Non-merchandise invoice line — excluded from tariff classification."],
+      warnings: [...warnings, "Non-merchandise invoice line — excluded from tariff classification."],
       retrievalTrace: { chapterCount: 0, headingCount: 0, nationalCount: 0 },
     };
   }
@@ -389,7 +397,6 @@ export function classifyHierarchically(
   const plugin = profile.pluginId ? getPluginById(profile.pluginId) : undefined;
   const pluginMatch = plugin?.match(rawDescription, context) || null;
   const query = profileSearchQuery(profile);
-  const warnings: string[] = [];
   const preferredHeadings = pluginMatch?.preferredHeadings?.length
     ? pluginMatch.preferredHeadings
     : (profile.preferredHeadings || []);
