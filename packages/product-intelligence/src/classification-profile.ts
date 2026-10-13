@@ -10,6 +10,10 @@ import {
 } from "./common-product-dictionary";
 import { routeProductFamily, applyFamilyRouteToProfile } from "./product-family-router";
 import { matchProductNounLexicon } from "./product-noun-lexicon";
+import {
+  invoiceLineIdentity,
+  supplierEvidenceConflictsWithDescription,
+} from "./description-supplier-precedence";
 import { extractAdministrativeCodes, semanticSearchText } from "./token-roles";
 import { isNonMerchandiseLine } from "./line-type";
 
@@ -96,17 +100,6 @@ function extractSku(raw: string): string {
   const sku = m[1].toUpperCase();
   if (STYLE_WORDS_NOT_SKU.test(sku)) return "";
   return sku;
-}
-
-/** Invoice line says apparel but supplier evidence says footwear (often a bad SKU match). */
-export function supplierEvidenceConflictsWithDescription(
-  rawDescription: string,
-  evidenceCanonical: string | undefined,
-): boolean {
-  if (!evidenceCanonical?.trim()) return false;
-  const descHit = matchProductNounLexicon(rawDescription);
-  if (!descHit || descHit.family !== "apparel") return false;
-  return /footwear|\bshoe\b|\bboot\b|\bsandal\b/i.test(evidenceCanonical);
 }
 
 function extractBrand(raw: string, expanded: string): string {
@@ -557,7 +550,12 @@ export function buildProductClassificationProfile(
   }
 
   const evidenceCanonicalEarly = context?.productEvidence?.canonicalProduct?.trim();
-  const ignoreEvidenceCanonical = supplierEvidenceConflictsWithDescription(raw, evidenceCanonicalEarly);
+  const invoiceIdentity = invoiceLineIdentity({ common, plugin, rule, lexicon });
+  const ignoreEvidenceCanonical = supplierEvidenceConflictsWithDescription(
+    raw,
+    invoiceIdentity,
+    evidenceCanonicalEarly,
+  );
 
   // Apply structured supplier evidence when stronger than weak consignee industry
   if (context?.productEvidence?.canonicalProduct && !ignoreEvidenceCanonical) {
@@ -707,6 +705,8 @@ export function buildProductClassificationProfile(
       energySource: common?.energySource || null,
       likelyHeadings: common?.likelyHeadings?.join(",") || null,
       invoiceNotes: context?.invoiceNotes || null,
+      ignoredSupplierEvidence: ignoreEvidenceCanonical || null,
+      ignoredSupplierLabel: ignoreEvidenceCanonical ? evidenceCanonicalEarly || null : null,
     },
     missingCriticalAttributes,
     interpretationConfidence,

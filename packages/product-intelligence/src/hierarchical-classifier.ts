@@ -18,7 +18,6 @@ import {
   buildProductClassificationProfile,
   profileSearchQuery,
   CUSTOMER_INDUSTRY_WEIGHT_MAX,
-  supplierEvidenceConflictsWithDescription,
   type ProductClassificationProfile,
 } from "./classification-profile";
 import { getPluginById } from "./plugins";
@@ -376,10 +375,10 @@ export function classifyHierarchically(
 ): HierarchicalClassificationResult {
   const profile = buildProductClassificationProfile(rawDescription, clarification, context);
   const warnings: string[] = [];
-  const evidenceCanonical = context?.productEvidence?.canonicalProduct?.trim();
-  if (supplierEvidenceConflictsWithDescription(rawDescription, evidenceCanonical)) {
+  if (profile.knownAttributes?.ignoredSupplierEvidence) {
+    const label = String(profile.knownAttributes.ignoredSupplierLabel || "supplier catalogue");
     warnings.push(
-      `Ignored supplier product label "${evidenceCanonical}" — the invoice line describes apparel (${profile.productNoun || "clothing"}).`,
+      `Ignored supplier product label "${label}" — the invoice description indicates ${profile.productNoun || profile.canonicalProduct || "a different product"}.`,
     );
   }
   if (profile.nonMerchandise) {
