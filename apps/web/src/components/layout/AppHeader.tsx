@@ -25,6 +25,7 @@ export function AppHeader({ isPhone, drawerOpen, onOpenMenu, menuButtonRef }: Ap
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const userBtnRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -32,7 +33,10 @@ export function AppHeader({ isPhone, drawerOpen, onOpenMenu, menuButtonRef }: Ap
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setMenuOpen(false);
+      if (e.key === "Escape") {
+        setMenuOpen(false);
+        userBtnRef.current?.focus();
+      }
     };
     document.addEventListener("mousedown", onDown);
     document.addEventListener("keydown", onKey);
@@ -95,10 +99,12 @@ export function AppHeader({ isPhone, drawerOpen, onOpenMenu, menuButtonRef }: Ap
         </button>
         <div ref={menuRef} className="relative">
           <button
+            ref={userBtnRef}
             type="button"
             className="dd-user-btn"
-            aria-haspopup="menu"
+            aria-label={`Account menu for ${user?.name ?? "user"}`}
             aria-expanded={menuOpen}
+            aria-controls="dd-user-menu"
             onClick={() => setMenuOpen((o) => !o)}
           >
             <span className="dd-avatar" aria-hidden>
@@ -108,14 +114,13 @@ export function AppHeader({ isPhone, drawerOpen, onOpenMenu, menuButtonRef }: Ap
             <ChevronDown size={14} aria-hidden />
           </button>
           {menuOpen && (
-            <div className="dd-user-menu" role="menu">
+            <div id="dd-user-menu" className="dd-user-menu">
               <div className="px-3 py-2">
                 <div className="text-sm font-semibold" style={{ color: "var(--text)" }}>{user?.name}</div>
                 <div className="text-xs capitalize" style={{ color: "var(--text2)" }}>{user?.role}</div>
               </div>
               <button
                 type="button"
-                role="menuitem"
                 className="dd-user-menu-item"
                 onClick={() => {
                   setMenuOpen(false);

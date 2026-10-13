@@ -683,10 +683,9 @@ export function EmailModal({ data, currentUserName, onClose, title, subtitle, on
                     type="button"
                     onClick={() => setModeChoice("email")}
                     className={cn(
-                      "flex flex-1 items-center justify-center gap-1.5 rounded-md border-none px-3 py-2 text-xs font-semibold transition",
-                      modeChoice === "email" ? "dd-tab-active" : "",
+                      "dd-segment flex flex-1 items-center justify-center gap-1.5 rounded-md border-none px-3 py-2 text-xs font-semibold transition",
+                      modeChoice === "email" ? "dd-segment-active" : "",
                     )}
-                    style={modeChoice === "email" ? undefined : { color: "var(--text2)", background: "transparent" }}
                   >
                     <Mail size={14} />
                     Email

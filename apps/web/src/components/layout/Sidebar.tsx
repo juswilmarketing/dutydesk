@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { NavLink, useLocation } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { DUTY_DESK_LOGO_SRC } from "@/lib/brand";
@@ -65,6 +65,7 @@ export function Sidebar({
   const renderItem = (item: NavItem) => {
     const Icon = item.icon;
     const isActive = active?.item === item;
+    const itemCurrent = isActive ? (active?.child ? "true" : "page") : undefined;
     const badge = item.badge ? badges[item.badge] : 0;
     const disabled = item.requiresInvoices && invoiceCount === 0;
     const tip = disabled ? `${item.label} (upload an invoice first)` : NAV_TAB_TIPS[item.to] ?? item.label;
@@ -85,27 +86,27 @@ export function Sidebar({
             {rail && <span className="sr-only">{item.label}</span>}
           </span>
         ) : (
-          <NavLink
+          <Link
             to={item.to}
             title={rail ? item.label : tip}
-            aria-current={isActive ? "page" : undefined}
+            aria-current={itemCurrent}
             className={cn("dd-side-link", isActive && "dd-side-link-active")}
           >
             {content}
             {rail && <span className="sr-only">{item.label}</span>}
-          </NavLink>
+          </Link>
         )}
         {!rail && isActive && item.children && item.children.length > 0 && (
           <ul className="dd-side-children">
             {item.children.map((child) => (
               <li key={child.to}>
-                <NavLink
+                <Link
                   to={child.to}
                   aria-current={active?.child === child ? "page" : undefined}
                   className={cn("dd-side-child", active?.child === child && "dd-side-child-active")}
                 >
                   {child.label}
-                </NavLink>
+                </Link>
               </li>
             ))}
           </ul>

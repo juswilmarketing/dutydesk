@@ -467,10 +467,9 @@ export function TaxCalculatorPage() {
               type="button"
               onClick={() => setChargesTab("freight_insurance")}
               className={cn(
-                "flex w-full flex-1 items-center justify-center gap-1.5 rounded-md border-none px-4 py-2.5 text-sm font-semibold transition",
-                chargesTab === "freight_insurance" ? "dd-tab-active" : "",
+                "dd-segment flex w-full flex-1 items-center justify-center gap-1.5 rounded-md border-none px-4 py-2.5 text-sm font-semibold transition",
+                chargesTab === "freight_insurance" ? "dd-segment-active" : "",
               )}
-              style={chargesTab === "freight_insurance" ? undefined : { color: "var(--text2)", background: "transparent" }}
             >
               Freight &amp; Insurance
             </button>
@@ -480,10 +479,9 @@ export function TaxCalculatorPage() {
               type="button"
               onClick={() => setChargesTab("other")}
               className={cn(
-                "flex w-full flex-1 items-center justify-center gap-1.5 rounded-md border-none px-4 py-2.5 text-sm font-semibold transition",
-                chargesTab === "other" ? "dd-tab-active" : "",
+                "dd-segment flex w-full flex-1 items-center justify-center gap-1.5 rounded-md border-none px-4 py-2.5 text-sm font-semibold transition",
+                chargesTab === "other" ? "dd-segment-active" : "",
               )}
-              style={chargesTab === "other" ? undefined : { color: "var(--text2)", background: "transparent" }}
             >
               Other Charges
             </button>

@@ -265,6 +265,27 @@
     background: var(--surface2);
   }
 
+  /* Segmented toggle */
+  .dd-segment {
+    @apply shrink-0 cursor-pointer whitespace-nowrap rounded-[10px] border-none px-4 py-2.5 text-sm font-medium transition;
+    background: transparent;
+    color: var(--text2);
+  }
+  .dd-segment:hover:not(.dd-segment-active):not(:disabled) {
+    background: color-mix(in srgb, var(--text) 6%, transparent);
+    color: var(--text);
+  }
+  .dd-segment-active {
+    background: var(--surface);
+    color: var(--accent);
+    font-weight: 600;
+    box-shadow: var(--shadow);
+  }
+  .dd-segment:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
   /* Sidebar */
   .dd-sidebar {
     @apply fixed inset-y-0 left-0 z-50 flex w-[248px] flex-col transition-[width,transform] duration-200;
@@ -284,7 +305,7 @@
     box-shadow: 0 0 40px rgba(0, 0, 0, 0.35);
   }
   .dd-sidebar-backdrop {
-    @apply fixed inset-0 z-40;
+    @apply fixed inset-0 z-[45];
     background: rgba(5, 10, 20, 0.5);
   }
   .dd-side-brand {
