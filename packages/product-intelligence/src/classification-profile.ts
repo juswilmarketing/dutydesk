@@ -550,7 +550,7 @@ export function buildProductClassificationProfile(
   }
 
   const evidenceCanonicalEarly = context?.productEvidence?.canonicalProduct?.trim();
-  const invoiceIdentity = invoiceLineIdentity({ common, plugin, rule, lexicon });
+  const invoiceIdentity = invoiceLineIdentity({ common, plugin, rule: rule ?? null, lexicon });
   const ignoreEvidenceCanonical = supplierEvidenceConflictsWithDescription(
     raw,
     invoiceIdentity,
