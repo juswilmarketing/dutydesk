@@ -129,6 +129,49 @@ describe("autosave", () => {
     expect(api.saveCurrentJob).not.toHaveBeenCalled();
   });
 
+  it("abandons the server draft when every invoice is removed, so it does not come back at next login", async () => {
+    stop = sync.startJobAutosave();
+    loadInvoices();
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(useWorkflowStore.getState().serverJobId).toBe("j1");
+
+    useInvoiceStore.setState({ invoices: [], activeInvId: null });
+    await vi.advanceTimersByTimeAsync(1000);
+
+    expect(api.abandonJob).toHaveBeenCalledWith("j1");
+    expect(useWorkflowStore.getState().serverJobId).toBeNull();
+    expect(pendingKeys()).toEqual([]);
+    expect(api.saveCurrentJob).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not abandon the server draft when logout wipes local data", async () => {
+    stop = sync.startJobAutosave();
+    loadInvoices();
+    await vi.advanceTimersByTimeAsync(1000);
+
+    vi.stubGlobal("sessionStorage", { clear: () => {} });
+    const { clearLocalSessionData } = await import("@/lib/session-reset");
+    clearLocalSessionData();
+    vi.unstubAllGlobals();
+    await vi.advanceTimersByTimeAsync(1000);
+
+    expect(api.abandonJob).not.toHaveBeenCalled();
+    expect(pendingKeys()).toEqual([]);
+  });
+
+  it("keeps the abandon queued when the server is unreachable after every invoice is removed", async () => {
+    stop = sync.startJobAutosave();
+    loadInvoices();
+    await vi.advanceTimersByTimeAsync(1000);
+    vi.mocked(api.abandonJob).mockRejectedValueOnce(new Error("offline"));
+
+    useInvoiceStore.setState({ invoices: [], activeInvId: null });
+    await vi.advanceTimersByTimeAsync(1000);
+
+    expect(pendingKeys()).toEqual(["j1"]);
+    expect(useWorkflowStore.getState().serverJobId).toBeNull();
+  });
+
   it("shows 'Not saved — retrying' on failure and retries after 5000 ms", async () => {
     vi.mocked(api.saveCurrentJob).mockRejectedValueOnce(new ApiError("boom", 500));
     stop = sync.startJobAutosave();

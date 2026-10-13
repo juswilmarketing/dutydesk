@@ -111,9 +111,20 @@ function schedule(delay = AUTOSAVE_DELAY_MS) {
 async function saveNow(): Promise<void> {
   if (suspended) return;
   const state = currentState();
-  if (!hasJobContent(state)) return;
   const sync = useJobSyncStore.getState();
   const gen = generation;
+
+  if (!hasJobContent(state)) {
+    // Every invoice was removed: the server draft must go too, or hydrate restores it at the next login.
+    const emptiedJobId = useWorkflowStore.getState().serverJobId;
+    if (emptiedJobId === null || currentUserId === null) return;
+    enqueuePendingClose(localStorage, { jobId: emptiedJobId, userId: currentUserId, status: "abandoned" });
+    useWorkflowStore.getState().setServerJobId(null);
+    currentJobId = null;
+    sync.setSaveState("idle");
+    await flushPendingJobCloses();
+    return;
+  }
 
   // Never write into a draft that is still waiting to be closed as sent/abandoned.
   if (currentUserId !== null && readPendingClosesForUser(localStorage, currentUserId).length > 0) {
